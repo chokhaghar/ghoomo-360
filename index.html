@@ -2111,7 +2111,7 @@ function makeAligner(shots) {
     let ma = 0, mb = 0; for (let k = 0; k < n; k++) { ma += va[k]; mb += vb[k]; } ma /= n; mb /= n;
     let sab = 0, saa = 0, sbb = 0; for (let k = 0; k < n; k++) { const a = va[k] - ma, b = vb[k] - mb; sab += a * b; saa += a * a; sbb += b * b; }
     const ncc = sab / Math.sqrt(saa * sbb + 1e-9);
-    return { n, cost: (1 - ncc) * n, ma, mb };
+    return { n, cost: (1 - ncc) * n, ma, mb, sd: Math.sqrt(saa / n) };
   }
   function cost(tl, only) {
     let c = 0, n = 0;
@@ -2124,9 +2124,37 @@ function makeAligner(shots) {
   return { pairs, pairStats, cost };
 }
 
+/* how well photo k agrees with the photos it overlaps (normalised correlation), and how much detail
+   the overlap has - plain walls carry no evidence either way, so they are never judged */
+const FIT_MIN = 0.4, TEX_MIN = 0.035;
+function fitOf(A, k, tl) {
+  let num = 0, den = 0, tex = 0;
+  for (const [i, j] of A.pairs) { if (i !== k && j !== k) continue; const st = A.pairStats(i, j, tl); if (!st) continue; num += st.cost; den += st.n; tex += st.sd * st.n; }
+  return den ? { ncc: 1 - num / den, tex: tex / den } : null;
+}
+/* live check right after a shot: nudge the new photo into place against what is already taken,
+   then say whether it fits. Returns null when there is nothing to compare with yet. */
+function liveFit(shots, k, tl) {
+  const near = shots.filter((s, i) => i === k || dot(s.B.f, shots[k].B.f) > Math.cos(70 * DEG));
+  if (near.length < 2) return null;
+  for (const s of near) { const L = s.lo, long = Math.max(L.w, L.h); s.ax = L.w / long; s.ay = L.h / long; }
+  const A = makeAligner(near), ki = near.indexOf(shots[k]);
+  let cur = A.cost(tl, ki);
+  for (const st of [2, 1, 0.5]) for (const ax of ['u', 'r', 'f']) for (const sg of [1, -1]) {
+    const keep = shots[k].B; shots[k].B = turn(keep, ax, sg * st * DEG);
+    const c = A.cost(tl, ki); if (c < cur - 1e-5) cur = c; else shots[k].B = keep;
+  }
+  return fitOf(A, ki, tl);
+}
+function liveFov(shots) {             // lens estimate from the photos taken so far
+  for (const s of shots) { const L = s.lo, long = Math.max(L.w, L.h); s.ax = L.w / long; s.ay = L.h / long; }
+  const A = makeAligner(shots); let best = ASSUMED_FOV, bc = A.cost(Math.tan(ASSUMED_FOV / 2 * DEG));
+  for (let f = 50; f <= 82; f += 2) { const c = A.cost(Math.tan(f / 2 * DEG)); if (c < bc) { bc = c; best = f; } }
+  return best;
+}
 async function alignShots(shots, onProg) {
   for (let i = 0; i < shots.length; i++) {
-    shots[i].lo = await lowRes(shots[i].blob, 176);
+    if (!shots[i].lo) shots[i].lo = await lowRes(shots[i].blob, 176);
     const L = shots[i].lo, long = Math.max(L.w, L.h);
     if (!shots[i].pw) { shots[i].pw = L.w; shots[i].ph = L.h; }
     shots[i].ax = L.w / long; shots[i].ay = L.h / long;     // tan-scale per axis relative to the long side
@@ -2170,7 +2198,10 @@ async function alignShots(shots, onProg) {
     g[i] = clamp(num / den, 0.5, 2);
   }
   const med = [...g].sort((a, b) => a - b)[N >> 1]; for (let i = 0; i < N; i++) shots[i].gain = g[i] / med;
-  return { fov: bestF, tl, quality: 1 - bestC };
+  // which photos still do not fit their neighbours (usually: the phone moved away from the spot)
+  const bad = [], fits = [];
+  for (let i = 0; i < N; i++) { const f = fitOf(A, i, tl); fits.push(f ? +f.ncc.toFixed(2) : null); if (f && f.tex > TEX_MIN && f.ncc < FIT_MIN) bad.push(i); }
+  return { fov: bestF, tl, quality: 1 - bestC, bad, fits };
 }
 
 /* ---- GPU blend into an equirectangular image ---- */
@@ -2355,7 +2386,7 @@ async function stitchRoom(shots, opts = {}) {
   const blob = await new Promise(r => c2.toBlob(r, 'image/jpeg', 0.9));
   const ext = gl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext();
   onProg(1);
-  return { blob, width: OW, height: OH, fov: al.fov, quality: al.quality, coverage: cover / totalW };
+  return { blob, width: OW, height: OH, fov: al.fov, quality: al.quality, coverage: cover / totalW, bad: al.bad.map(i => shots[i].ti), fits: al.fits };
 }
 
 /* ===================================================================== camera sources */
@@ -2516,9 +2547,16 @@ class Capture {
     const mk = p.querySelector('#qMake'); if (mk) mk.onclick = () => this.finish();
   }
   /* ---- the dots ---- */
-  startShots() {
-    this.targets = makeTargets().map(t => Object.assign({}, t, { yaw: t.yaw + this.pending.heading, done: false }));
-    this.shots = []; this.idx = 0; this.hold = 0; this.mode = 'shoot';
+  startShots(redo) {
+    if (redo && this.targets) {
+      // only the listed dots again; everything else stays
+      this.shots = this.shots.filter(sh => !redo.includes(sh.ti));
+      this.targets.forEach((t, i) => { if (redo.includes(i)) { t.done = false; t.skipped = false; t.retried = false; t.redo = true; } });
+      this.idx = this.targets.findIndex(t => !t.done); this.hold = 0; this.mode = 'shoot';
+    } else {
+      this.targets = makeTargets().map(t => Object.assign({}, t, { yaw: t.yaw + this.pending.heading, done: false }));
+      this.shots = []; this.idx = 0; this.hold = 0; this.mode = 'shoot'; this.liveFovDeg = ASSUMED_FOV;
+    }
     this.hud(esc(this.pending.name), '', `<button class="btn small" id="cUndo">Pichli photo dobara</button><button class="btn small" id="cSkip" hidden>Yeh hissa chhodo</button>`);
     const bar = this.root.querySelector('.bar');
     bar.insertBefore(h(`<div class="prog"><i></i></div>`), bar.firstChild);
@@ -2531,7 +2569,7 @@ class Capture {
     const t = this.targets[this.idx]; if (!t) return;
     const tip = this.root.querySelector('.tip'), pr = this.root.querySelector('.prog i');
     const done = this.targets.filter(x => x.done).length;
-    tip.innerHTML = `${RING_TIP[t.ring][0]}<small>${RING_TIP[t.ring][1]} · ${done}/${this.targets.length}</small>`;
+    if (!tip.dataset.hold) tip.innerHTML = `${RING_TIP[t.ring][0]}<small>${RING_TIP[t.ring][1]} · ${done}/${this.targets.length}</small>`;
     pr.style.width = (100 * done / this.targets.length) + '%';
     this.root.querySelector('.top span').textContent = ['Chaaron taraf', 'Upar', 'Neeche', 'Chhat', 'Farsh'][t.ring];
     const sk = this.root.querySelector('#cSkip'); if (sk) sk.hidden = t.ring < 3;
@@ -2565,7 +2603,8 @@ class Capture {
     this.flashEl.classList.add('on'); requestAnimationFrame(() => this.flashEl.classList.remove('on'));
     try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
     const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
-    this.shots.push({ blob, B: { r: B.r.slice(), u: B.u.slice(), f: B.f.slice() }, ti: this.idx, pw: w, ph: hh });
+    const shotObj = { blob, B: { r: B.r.slice(), u: B.u.slice(), f: B.f.slice() }, ti: this.idx, pw: w, ph: hh };
+    this.shots.push(shotObj);
     t.done = true; this.mode = 'shoot'; this.advance();
   }
   /* ---- per-frame: sensor -> camera direction, guidance, auto shutter ---- */
@@ -2643,16 +2682,20 @@ class Capture {
       const pend = this.pending;
       const room = { name: pend.name, parent: pend.parent, heading: pend.heading, blob: res.blob, url, quality: res.quality, fov: res.fov };
       const skipped = this.targets.filter(t => t.skipped).length;
-      const low = res.quality < 0.55;
+      const bad = (res.bad || []).filter(i => !this.targets[i].redo);
+      const low = res.quality < 0.55 && !bad.length;
       const q = this.panel(`<div class="k">${esc(room.name)} taiyaar</div><h2>Yeh raha 360° photo</h2>
         <img class="pv" alt="Stitched 360 degree photo of ${esc(room.name)}">
         ${low ? '<div class="warn">Kuch photos theek se nahi jud paayi. Shayad phone ghumate waqt aap jagah se hil gaye, ya room mein bahut kam roshni thi. Ek baar dobara lena behtar rahega.</div>' : ''}
+        ${bad.length ? `<div class="warn"><b>${bad.length} hissa${bad.length > 1 ? 'on' : ''} theek se nahi juda.</b> Shayad us waqt phone thoda khisak gaya tha. Sirf ${bad.length === 1 ? 'woh ek dot' : `woh ${bad.length} dots`} dobara milaiye, baaki room waisa hi rahega.</div><button class="btn primary wide" id="qFix">Sirf ${bad.length} dot dobara lo</button><div style="height:10px"></div>` : ''}
         ${skipped ? `<div class="warn">${skipped === 2 ? 'Chhat aur farsh' : 'Ek hissa'} chhoda gaya. Wahan halka dhundhla bhar diya gaya hai.</div>` : ''}
         <button class="btn primary wide" id="qOk">Achha hai, agla room</button><div style="height:10px"></div>
         <button class="btn wide" id="qFin">Achha hai, tour taiyaar karo</button><div style="height:10px"></div>
         <button class="btn wide" id="qRe">Dobara lo</button>
         <div class="row" style="margin-top:12px"><button class="linkbtn" id="qDbg" type="button">Kachchi photos download karo (jaanch ke liye)</button></div>`);
       q.querySelector('img').src = url;
+      const fx = q.querySelector('#qFix');
+      if (fx) { fx.onclick = () => { URL.revokeObjectURL(url); this.clearPanel(); this.startShots(bad); }; q.querySelector('#qOk').className = 'btn wide'; }
       q.querySelector('#qOk').onclick = () => { this.rooms.push(room); this.roomStart(); };
       q.querySelector('#qFin').onclick = () => { this.rooms.push(room); this.finish(); };
       q.querySelector('#qRe').onclick = () => { URL.revokeObjectURL(url); this.clearPanel(); this.startShots(); };
@@ -2689,7 +2732,7 @@ class Capture {
 
 window.GhoomoCapture = {
   open(opts = {}) { if (window.__cap) window.__cap.destroy(); const c = new Capture(opts); window.__cap = c; if (opts.simRoom) c.simRoom = opts.simRoom; c.mount(); return c; },
-  stitchRoom, basisFromEuler, makeTargets, _sim: openSimCamera, _turn: turn, _dirOf: dirOf,
+  stitchRoom, basisFromEuler, makeTargets, _sim: openSimCamera, _liveFit: liveFit, _liveFov: liveFov, _lowRes: lowRes, _turn: turn, _dirOf: dirOf,
 };
 if (window.__wantCapture) window.GhoomoCapture.open(window.__wantCapture);
 })();
