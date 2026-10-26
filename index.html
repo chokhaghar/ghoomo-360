@@ -1,0 +1,1866 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ghoomo 360 — Ghar baithe, poora ghar ghoomo</title>
+<meta name="description" content="Upload property photos, link the rooms, and let buyers walk through every room in 360° from their phone. Made for builders and brokers.">
+<meta name="theme-color" content="#0c0e11">
+<link rel="canonical" href="https://chokhaghar.github.io/ghoomo-360/">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Ghoomo 360">
+<meta property="og:title" content="Ghoomo 360 — Ghar baithe, poora ghar ghoomo">
+<meta property="og:description" content="Upload property photos, link the rooms, and let buyers walk through every room in 360° from their phone. Made for builders and brokers.">
+<meta property="og:url" content="https://chokhaghar.github.io/ghoomo-360/">
+<meta property="og:image" content="https://chokhaghar.github.io/ghoomo-360/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A bright living room with a balcony, shown in the Ghoomo 360 viewer">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ghoomo 360 — Ghar baithe, poora ghar ghoomo">
+<meta name="twitter:description" content="Upload property photos, link the rooms, and let buyers walk through every room in 360° from their phone. Made for builders and brokers.">
+<meta name="twitter:image" content="https://chokhaghar.github.io/ghoomo-360/og.jpg">
+<style>[hidden]{display:none!important}img{max-width:100%}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style id="viewer-css">
+/* Layout: one full-screen stage (the 360 viewer) with glass controls floating over it. */
+:root{
+  color-scheme: dark;
+  --ink:#0c0e11; --ink-2:#14171c; --ink-3:#1c2027;
+  --glass:rgba(15,17,21,.80); --glass-strong:rgba(12,14,18,.94);
+  --line:rgba(255,255,255,.12); --line-2:rgba(255,255,255,.24);
+  --text:#f3efe8; --muted:#aaa59c; --faint:#77736c;
+  --accent:#f2a93b; --accent-2:#ffcc7a; --accent-ink:#1d1405;
+  --ok:#7fd3a0; --warn:#f2c94c; --bad:#f08a7e;
+  --f-display:"Archivo","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  --f-body:"Archivo","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r-sm:8px; --r-md:14px; --r-lg:22px;
+  --gut:max(16px, env(safe-area-inset-left, 0px));
+  --gut-r:max(16px, env(safe-area-inset-right, 0px));
+  --top:max(14px, env(safe-area-inset-top, 0px));
+  --bot:max(14px, env(safe-area-inset-bottom, 0px));
+}
+html,body{height:100%}
+body{margin:0;background:var(--ink);color:var(--text);font-family:var(--f-body);font-size:14px;line-height:1.45;overflow:hidden;-webkit-font-smoothing:antialiased;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+button{font:inherit;color:inherit}
+.stage{position:fixed;inset:0;background:#000;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;outline:none}
+.stage canvas.dragging{cursor:grabbing}
+.stage canvas.picking{cursor:crosshair}
+.stage .fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .35s ease}
+.stage .fade.on{opacity:1}
+.hs-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.hs{position:absolute;left:0;top:0;pointer-events:auto;background:none;border:0;padding:0;cursor:pointer;will-change:transform}
+.hs .disk{position:absolute;left:-50px;top:-50px;width:100px;height:100px;transform-origin:50% 50%}
+.hs .ring{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%, rgba(12,14,18,.38) 0 50%, rgba(255,255,255,.97) 51.5% 60%, rgba(0,0,0,.22) 61.5%, rgba(0,0,0,0) 70%);
+  transition:transform .2s ease, background .2s ease}
+.hs .chev{position:absolute;inset:0;display:grid;place-items:center}
+.hs .chev svg{width:46%;height:46%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.hs:hover .ring,.hs:focus-visible .ring{transform:scale(1.1);background:radial-gradient(circle at 50% 50%, rgba(242,169,59,.78) 0 50%, rgba(255,255,255,1) 51.5% 60%, rgba(0,0,0,.22) 61.5%, rgba(0,0,0,0) 70%)}
+.hs .bill{position:absolute;left:-26px;top:-26px;width:52px;height:52px;border-radius:50%;background:rgba(14,16,20,.72);border:2px solid #fff;display:grid;place-items:center;
+  box-shadow:0 4px 18px rgba(0,0,0,.35);transition:transform .2s ease, background .2s ease}
+.hs .bill svg{width:22px;height:22px}
+.hs:hover .bill,.hs:focus-visible .bill{transform:scale(1.1);background:var(--accent);color:var(--accent-ink)}
+.hs .label{position:absolute;left:0;top:0;transform:translate(-50%, 0);white-space:nowrap;font-size:12.5px;font-weight:600;letter-spacing:.01em;
+  padding:5px 10px;border-radius:999px;background:rgba(10,12,15,.82);border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 4px 14px rgba(0,0,0,.25);pointer-events:none}
+.hs:focus-visible{outline:none}
+.hs:focus-visible .label{border-color:var(--accent)}
+.hs.loading .ring{animation:hspulse 1s ease-in-out infinite}
+@keyframes hspulse{50%{transform:scale(1.18);opacity:.7}}
+.hs.editing .ring{background:radial-gradient(circle at 50% 50%, rgba(242,169,59,.45) 0 50%, var(--accent) 51.5% 60%, rgba(0,0,0,.22) 61.5%, rgba(0,0,0,0) 70%)}
+.boot{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#cfc9bf;font-size:13px;background:#0c0e11;transition:opacity .5s ease;z-index:3}
+.boot.gone{opacity:0;pointer-events:none}
+.spinner{width:28px;height:28px;border-radius:50%;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.hs .ring,.hs .bill{transition:none}.hs.loading .ring{animation:none}}
+</style>
+<style id="app-css">
+/* ---------- app chrome ----------
+   No backdrop blur anywhere: blurring a live 360 view has to be redone on every frame and was the
+   biggest cost while dragging. Slightly more solid panels give the same calm look for free. */
+.glass{background:var(--glass);border:1px solid var(--line)}
+/* panels sized against the screen include their padding, so they never run past a phone's edge */
+.welcome,.plan,.sheet,.toast,.roompill,.banner,.titlecard,.builder{box-sizing:border-box}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 18px;border-radius:999px;border:1px solid var(--line-2);background:rgba(255,255,255,.06);
+  font-weight:600;font-size:14px;cursor:pointer;transition:background .15s ease, border-color .15s ease, transform .15s ease;white-space:nowrap;text-decoration:none}
+.btn:hover{background:rgba(255,255,255,.12)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible,.ibtn:focus-visible,.chip:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn svg{width:18px;height:18px;flex:none}
+.btn.small svg{width:16px;height:16px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{background:var(--accent-2)}
+.btn.small{min-height:34px;padding:0 13px;font-size:13px}
+.btn.danger{border-color:rgba(240,138,126,.45);color:var(--bad)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.ibtn{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);background:var(--glass);cursor:pointer;transition:background .15s ease}
+.ibtn:hover{background:rgba(40,44,52,.85)}
+.ibtn svg{width:19px;height:19px}
+.ibtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.mono{font-family:var(--f-mono);font-feature-settings:"tnum" 1;font-variant-numeric:tabular-nums}
+
+/* top bar in tour mode */
+.topbar{position:fixed;left:var(--gut);right:var(--gut-r);top:var(--top);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;pointer-events:none;z-index:5}
+.topbar > *{pointer-events:auto}
+.titlecard{display:flex;align-items:center;gap:12px;padding:8px 16px 8px 8px;border-radius:999px;min-width:0;flex:0 1 auto;max-width:min(560px, 100%)}
+.titlecard .ibtn{flex:none;background:rgba(255,255,255,.06)}
+.titlecard .tt{min-width:0}
+.titlecard .t1{font-family:var(--f-display);font-variation-settings:"wdth" 108;font-weight:700;font-size:15px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.titlecard .t2{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tools{display:flex;gap:8px;flex:none;justify-content:flex-end}
+
+/* room strip */
+.rooms{position:fixed;left:0;right:0;bottom:var(--bot);display:flex;justify-content:center;pointer-events:none;z-index:5;padding-left:var(--gut);padding-right:var(--gut-r)}
+.rooms .track{pointer-events:auto;display:flex;gap:8px;padding:8px;border-radius:20px;overflow-x:auto;max-width:100%;scrollbar-width:none;scroll-snap-type:x proximity}
+.rooms .track::-webkit-scrollbar{display:none}
+.chip{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:6px;width:116px;padding:5px;border-radius:13px;border:1px solid transparent;background:rgba(255,255,255,.04);cursor:pointer;scroll-snap-align:center;text-align:left}
+.chip img{width:100%;aspect-ratio:2/1;object-fit:cover;border-radius:9px;display:block;background:var(--ink-3)}
+.chip span{font-size:12.5px;font-weight:600;padding:0 4px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip:hover{background:rgba(255,255,255,.09)}
+.chip[aria-current="true"]{border-color:var(--accent);background:rgba(242,169,59,.12)}
+
+/* room info pill */
+.roompill{position:fixed;left:50%;top:calc(var(--top) + 64px);transform:translateX(-50%);padding:6px 14px;border-radius:999px;font-size:13px;display:flex;gap:10px;align-items:center;z-index:4;white-space:nowrap;max-width:calc(100% - 32px)}
+.roompill b{font-weight:700}
+.roompill .mono{color:var(--muted);font-size:12px}
+
+/* hint */
+.hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);padding:14px 20px;border-radius:16px;display:flex;align-items:center;gap:14px;z-index:4;pointer-events:none;transition:opacity .6s ease}
+.hint.gone{opacity:0}
+.hint svg{width:34px;height:34px;flex:none}
+.hint .h1{font-weight:700}
+.hint .h2{color:var(--muted);font-size:13px}
+
+/* floor plan */
+.plan{position:fixed;left:var(--gut);bottom:calc(var(--bot) + 106px);width:min(360px, calc(100% - 32px));border-radius:var(--r-md);padding:10px;z-index:6}
+.plan header{display:flex;justify-content:space-between;align-items:center;padding:2px 4px 8px}
+.plan header b{font-family:var(--f-display);font-variation-settings:"wdth" 108;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+.plan .pwrap{position:relative;border-radius:10px;overflow:hidden;background:#e9e5de}
+.plan .pwrap img{display:block;width:100%;height:auto}
+.plan .dot{position:absolute;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;border:2px solid #fff;background:#3a3f48;box-shadow:0 2px 6px rgba(0,0,0,.35);cursor:pointer;padding:0}
+.plan .dot[aria-current="true"]{background:var(--accent)}
+.plan .cone{position:absolute;width:0;height:0;pointer-events:none}
+.plan .cone svg{position:absolute;left:-60px;top:-60px;width:120px;height:120px;overflow:visible}
+.plan .plabel{position:absolute;transform:translate(-50%, 13px);font-size:10.5px;font-weight:700;color:#23272e;white-space:nowrap;pointer-events:none;background:rgba(255,255,255,.82);padding:1px 6px;border-radius:5px;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+
+/* zoom */
+.zoom{position:fixed;right:var(--gut-r);bottom:calc(var(--bot) + 106px);display:flex;flex-direction:column;gap:8px;z-index:5}
+
+/* welcome card (home) */
+.welcome{position:fixed;left:var(--gut);bottom:calc(var(--bot) + 8px);width:min(514px, calc(100% - 32px));border-radius:var(--r-lg);padding:22px 22px 20px;z-index:8;background:var(--glass-strong)}
+.welcome .eyebrow{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:8px}
+.welcome .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(242,169,59,.18);display:inline-block}
+.welcome h1{font-family:var(--f-display);font-variation-settings:"wdth" 118;font-weight:800;font-size:clamp(28px, 5vw, 38px);line-height:1.02;margin:10px 0 8px;letter-spacing:-.01em;text-wrap:balance}
+.welcome p{margin:0 0 16px;color:#d8d3ca;font-size:15px;max-width:42ch;text-wrap:pretty}
+.welcome .row{display:flex;gap:10px;flex-wrap:wrap}
+.welcome .meta{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:12.5px}
+.welcome .meta span{display:flex;align-items:center;gap:6px}
+.welcome .meta svg{width:15px;height:15px;opacity:.8}
+.brandmark{position:fixed;right:var(--gut-r);top:var(--top);display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:999px;z-index:8}
+.brandmark b{font-family:var(--f-display);font-variation-settings:"wdth" 120;font-weight:800;letter-spacing:.02em}
+.logo{width:26px;height:26px;flex:none}
+
+/* sheet / modal */
+.scrim{position:fixed;inset:0;background:rgba(5,6,8,.55);z-index:30;display:grid;place-items:center;padding:16px}
+.sheet{width:min(768px, 100%);max-height:calc(100% - 32px);overflow:auto;border-radius:var(--r-lg);background:var(--ink-2);border:1px solid var(--line);padding:24px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.sheet h2{font-family:var(--f-display);font-variation-settings:"wdth" 112;font-size:24px;margin:0 0 6px;text-wrap:balance}
+.sheet h3{font-size:15px;margin:18px 0 6px}
+.sheet p,.sheet li{color:#d6d1c8}
+.sheet .sub{color:var(--muted);margin:0 0 14px}
+.sheet .grid3{display:grid;grid-template-columns:repeat(auto-fit, minmax(190px, 1fr));gap:12px;margin-top:14px}
+.sheet .card{border:1px solid var(--line);border-radius:var(--r-md);padding:14px;background:rgba(255,255,255,.03);min-width:0}
+.sheet .card .k{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.sheet .card b{display:block;margin:6px 0 4px}
+.sheet .card p{margin:0;font-size:13px}
+.sheet .tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line-2);color:var(--muted);margin-top:8px}
+.sheet .tag.good{border-color:rgba(127,211,160,.5);color:var(--ok)}
+.sheet .tag.mid{border-color:rgba(242,201,76,.5);color:var(--warn)}
+.sheet .tag.no{border-color:rgba(240,138,126,.5);color:var(--bad)}
+.sheet .foot{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+
+/* ---------- builder ---------- */
+.builder{position:fixed;left:0;top:0;bottom:0;width:380px;max-width:100%;z-index:10;display:flex;flex-direction:column;background:var(--glass-strong);border-right:1px solid var(--line);
+  padding-top:var(--top);padding-bottom:var(--bot)}
+.builder .bhead{display:flex;align-items:center;gap:10px;padding:2px 16px 12px 12px;border-bottom:1px solid var(--line)}
+.builder .bhead .tt{flex:1;min-width:0}
+.builder .bhead input{width:100%;background:transparent;border:0;color:var(--text);font-family:var(--f-display);font-variation-settings:"wdth" 108;font-weight:700;font-size:16px;padding:4px 6px;border-radius:6px}
+.builder .bhead input:hover{background:rgba(255,255,255,.05)}
+.builder .bhead .t2{font-size:12px;color:var(--muted);padding:0 6px}
+.builder .bbody{flex:1;overflow:auto;padding:14px 14px 18px}
+.drop{border:1.5px dashed var(--line-2);border-radius:var(--r-md);padding:18px 14px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;transition:border-color .15s, background .15s;cursor:pointer}
+.drop.over{border-color:var(--accent);background:rgba(242,169,59,.08)}
+.drop.compact{flex-direction:row;justify-content:space-between;padding:10px 12px;text-align:left}
+.drop.compact svg,.drop.compact small{display:none}
+.drop.compact b{font-size:13.5px}
+.drop.compact .row{margin:0}
+.drop svg{width:30px;height:30px;color:var(--accent)}
+.drop b{font-size:14.5px}
+.drop small{color:var(--muted);font-size:12.5px;max-width:36ch}
+.drop .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.steps{display:flex;gap:6px;margin:14px 0 10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.steps span{display:flex;align-items:center;gap:6px;padding:4px 9px;border-radius:999px;border:1px solid var(--line)}
+.steps span.on{border-color:var(--accent);color:var(--text)}
+.steps span i{font-style:normal;font-family:var(--f-mono);color:var(--accent)}
+.rlist{display:flex;flex-direction:column;gap:8px}
+.rcard{display:grid;grid-template-columns:96px 1fr auto;gap:10px;align-items:center;padding:6px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.03);cursor:pointer}
+.rcard[aria-current="true"]{border-color:var(--accent);background:rgba(242,169,59,.09)}
+.rcard img{width:96px;aspect-ratio:2/1;object-fit:cover;border-radius:8px;display:block;background:var(--ink-3)}
+.rcard .rmeta{min-width:0}
+.rcard input{width:100%;background:transparent;border:1px solid transparent;color:var(--text);font-weight:600;font-size:14px;padding:3px 6px;border-radius:6px;min-width:0}
+.rcard input:hover,.rcard input:focus{border-color:var(--line-2);background:rgba(0,0,0,.2)}
+.rcard .badges{display:flex;gap:6px;flex-wrap:wrap;padding:2px 6px 0}
+.badge{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line-2);color:var(--muted);white-space:nowrap}
+.badge.ok{border-color:rgba(127,211,160,.5);color:var(--ok)}
+.badge.mid{border-color:rgba(242,201,76,.55);color:var(--warn)}
+.badge.start{border-color:var(--accent);color:var(--accent)}
+.rcard .acts{display:flex;flex-direction:column;gap:4px}
+.mini{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:transparent;display:grid;place-items:center;cursor:pointer}
+.mini:hover{background:rgba(255,255,255,.08)}
+.mini svg{width:15px;height:15px}
+.rcard.proc{opacity:.75;cursor:progress}
+.rcard .prog{height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden;margin:6px 6px 2px}
+.rcard .prog i{display:block;height:100%;width:40%;background:var(--accent);animation:indet 1.1s ease-in-out infinite}
+@keyframes indet{0%{transform:translateX(-100%)}100%{transform:translateX(260%)}}
+.note{margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(242,201,76,.35);background:rgba(242,201,76,.07);font-size:12.5px;color:#e9dfc0}
+.note.err{border-color:rgba(240,138,126,.45);background:rgba(240,138,126,.08);color:#f3d0ca}
+.note b{color:var(--text)}
+.bfoot{border-top:1px solid var(--line);padding:12px 14px 2px;display:flex;gap:8px;flex-wrap:wrap}
+.bfoot .btn{flex:1}
+.draftline{font-size:11.5px;color:var(--faint);padding:6px 14px 0}
+
+.edittools{position:fixed;left:calc(380px + 16px);right:var(--gut-r);top:var(--top);display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:9;pointer-events:none}
+.edittools > *{pointer-events:auto}
+.edittools .roomname{padding:8px 14px;border-radius:999px;font-weight:700;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.banner{position:fixed;left:calc(380px + (100% - 380px)/2);top:calc(var(--top) + 58px);transform:translateX(-50%);padding:8px 8px 8px 16px;border-radius:14px;z-index:9;display:flex;gap:12px;align-items:center;max-width:calc(100% - 412px);font-size:13.5px}
+.banner b{color:var(--accent)}
+.pop{position:fixed;z-index:20;min-width:220px;max-width:280px;border-radius:14px;padding:10px;background:rgba(20,23,28,.97);border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.pop .ph{font-size:12px;color:var(--muted);padding:2px 6px 8px}
+.pop .opt{display:flex;align-items:center;gap:10px;width:100%;padding:7px 8px;border-radius:10px;border:0;background:transparent;cursor:pointer;text-align:left}
+.pop .opt:hover,.pop .opt:focus-visible{background:rgba(255,255,255,.08);outline:none}
+.pop .opt img{width:52px;aspect-ratio:2/1;object-fit:cover;border-radius:6px}
+.pop label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#d6d1c8;padding:8px 6px 2px}
+.pop .sep{height:1px;background:var(--line);margin:6px 0}
+.toast{position:fixed;left:50%;bottom:calc(var(--bot) + 120px);transform:translateX(-50%);padding:10px 16px;border-radius:12px;z-index:40;font-size:13.5px;max-width:calc(100% - 32px);text-align:center}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;position:fixed;left:380px;right:0;top:0;bottom:0;text-align:center;padding:24px;color:var(--muted);z-index:2;pointer-events:none}
+.empty b{color:var(--text);font-size:17px;font-family:var(--f-display);font-variation-settings:"wdth" 110}
+.empty svg{width:64px;height:64px;color:var(--accent);opacity:.9}
+.slider{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:12px;font-size:12.5px;min-width:240px}
+.slider input{width:100%;accent-color:var(--accent)}
+.slider .lab{display:flex;justify-content:space-between;color:var(--muted)}
+
+.building .stage{left:380px}
+.building .empty{left:380px}
+@media (max-width: 760px){
+  .building .stage{left:0;bottom:min(52%, 460px)}
+  .builder{top:auto;width:100%;height:min(52%, 460px);border-right:0;border-top:1px solid var(--line);border-radius:20px 20px 0 0;padding-top:6px}
+  .edittools{left:var(--gut);top:var(--top)}
+  .banner{left:50%;max-width:calc(100% - 32px);top:calc(var(--top) + 104px);bottom:auto;width:max-content}
+  .empty,.building .empty{left:0;bottom:min(52%, 460px)}
+  .plan{bottom:calc(var(--bot) + 96px)}
+  .zoom{display:none}
+  .chip{width:92px}
+  .welcome{padding:18px 18px 16px;bottom:var(--bot)}
+  .welcome p{font-size:14px}
+  .roompill{top:calc(var(--top) + 60px)}
+  .brandmark{display:none}
+  .tools .hide-sm{display:none}
+  .titlecard{padding:6px 12px 6px 6px;gap:8px}
+  .titlecard .t2{display:none}
+  .tools{gap:6px}
+  .ibtn{width:40px;height:40px}
+}
+@media (max-height: 520px){ .rooms .chip img{display:none} .chip{width:auto} .plan{display:none}
+  .welcome{padding:14px 16px;max-height:calc(100% - 24px);overflow:auto} .welcome h1{font-size:24px;margin:6px 0} .welcome p{font-size:13px;margin-bottom:10px} .welcome .meta{display:none} .roompill{display:none} }
+@media (prefers-reduced-motion: reduce){ *{scroll-behavior:auto} .hint{transition:none} }
+</style>
+</head>
+<body>
+<noscript><div style="position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font:16px system-ui;color:#f3efe8;background:#0c0e11">Please turn on JavaScript to see the 360° tour.</div></noscript>
+<div class="stage" id="stage">
+  <canvas id="pano" tabindex="0" aria-label="360 degree view. Drag to look around, use arrow keys to turn, plus and minus to zoom."></canvas>
+  <div class="hs-layer" id="hsLayer"></div>
+  <div class="fade" id="fade"></div>
+  <div class="boot" id="boot" role="status"><div class="spinner"></div><span>Loading 360° view…</span></div>
+</div>
+
+<div id="ui"></div>
+
+<template id="tpl-icons">
+  <svg id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  <svg id="i-plan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 4h18v16H3z"/><path d="M3 11h7v9M10 4v4M14 20v-6h7M14 4v6"/></svg>
+  <svg id="i-rotate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/></svg>
+  <svg id="i-full" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  <svg id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .8-1 1.5V14"/><path d="M12 17.2v.3"/></svg>
+  <svg id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  <svg id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>
+  <svg id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  <svg id="i-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+  <svg id="i-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+  <svg id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+  <svg id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+  <svg id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+  <svg id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+  <svg id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+  <svg id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
+  <svg id="i-drag" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 24h28M10 24l5-5M10 24l5 5M38 24l-5-5M38 24l-5 5"/><circle cx="24" cy="24" r="4" fill="currentColor"/></svg>
+  <svg id="i-cube" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+  <svg id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
+  <svg id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg>
+  <svg id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+  <svg id="i-door" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 21V4l9-1.5V21"/><path d="M15 5h3v16M4 21h16"/><circle cx="12" cy="12.5" r=".9" fill="currentColor"/></svg>
+</template>
+
+<script id="demo-data">window.DEMO_TOUR = {"title": "Sample Flat · 1BHK", "subtitle": "Demo tour · 3D-rendered sample flat", "base": "demo/", "start": "living", "plan": {"img": "demo/plan.jpg", "x0": -0.5, "z0": -0.5, "x1": 9.5, "z1": 10.5}, "scenes": [{"id": "living", "name": "Living Room", "dims": "15′1″ × 13′1″", "area": 198, "startYaw": 135, "startPitch": -6, "pos": [1.75, 6.0], "hotspots": [{"to": "dining", "yaw": 22.89, "pitch": -31.56, "arriveYaw": 22.17}, {"to": "bedroom", "yaw": 74.63, "pitch": -26.43, "arriveYaw": 90.0}, {"to": "balcony", "yaw": 177.09, "pitch": -26.92, "arriveYaw": -100}]}, {"id": "dining", "name": "Dining", "dims": "15′1″ × 14′5″", "area": 218, "startYaw": -25, "startPitch": -6, "pos": [2.85, 3.3], "hotspots": [{"to": "living", "yaw": -160.43, "pitch": -32.13, "arriveYaw": -157.83}, {"to": "kitchen", "yaw": 61.29, "pitch": -32.07, "arriveYaw": 67.75}]}, {"id": "kitchen", "name": "Kitchen", "dims": "10′5″ × 10′10″", "area": 113, "startYaw": 25, "startPitch": -8, "pos": [6.15, 1.95], "hotspots": [{"to": "dining", "yaw": -101.59, "pitch": -37.0, "arriveYaw": -112.25}]}, {"id": "bedroom", "name": "Master Bedroom", "dims": "14′1″ × 12′9″", "area": 179, "startYaw": 95, "startPitch": -8, "pos": [6.3, 6.0], "hotspots": [{"to": "living", "yaw": -64.54, "pitch": -38.87, "arriveYaw": -90.0}]}, {"id": "balcony", "name": "Balcony", "dims": "15′1″ × 4′11″", "area": 74, "startYaw": -100, "startPitch": -6, "pos": [2.55, 9.4], "hotspots": [{"to": "living", "yaw": -18.0, "pitch": -35.5, "arriveYaw": -13.24}]}]};</script>
+<script id="engine">
+/* =====================================================================
+   Ghoomo 360 viewer engine — WebGL2 cube-map panorama renderer with
+   smooth inertia controls, walk-through transitions and floor hotspots.
+   ===================================================================== */
+(function (global) {
+'use strict';
+const DEG = Math.PI / 180;
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const wrap = a => ((a + 180) % 360 + 360) % 360 - 180;
+const angDiff = (a, b) => wrap(b - a);
+const now = () => performance.now();
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+const evTime = ev => { const t = ev && ev.timeStamp, n = performance.now(); return (t > 0 && Math.abs(n - t) < 1000) ? t : n; };
+
+function dirOf(yaw, pitch) {
+  const y = yaw * DEG, p = pitch * DEG, cp = Math.cos(p);
+  return [Math.sin(y) * cp, Math.sin(p), -Math.cos(y) * cp];
+}
+function camBasis(yaw, pitch) {
+  const y = yaw * DEG, p = pitch * DEG, cy = Math.cos(y), sy = Math.sin(y), cp = Math.cos(p), sp = Math.sin(p);
+  return { f: [sy * cp, sp, -cy * cp], r: [cy, 0, sy], u: [-sp * sy, cp, sp * cy] };
+}
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+const VS = `#version 300 es
+void main(){ vec2 p = vec2(float((gl_VertexID<<1)&2), float(gl_VertexID&2)); gl_Position = vec4(p*2.0-1.0, 0.0, 1.0); }`;
+const FS_VIEW = `#version 300 es
+precision highp float;
+uniform samplerCube uA; uniform samplerCube uB;
+uniform vec3 uFa, uRa, uUa; uniform vec2 uTa;
+uniform vec3 uFb, uRb, uUb; uniform vec2 uTb;
+uniform float uMix; uniform vec2 uRes; uniform float uBright;
+out vec4 o;
+void main(){
+  vec2 ndc = (gl_FragCoord.xy / uRes) * 2.0 - 1.0;
+  vec3 da = normalize(uFa + ndc.x*uTa.x*uRa + ndc.y*uTa.y*uUa);
+  vec3 c = texture(uA, da).rgb;
+  if (uMix > 0.0) {
+    vec3 db = normalize(uFb + ndc.x*uTb.x*uRb + ndc.y*uTb.y*uUb);
+    c = mix(c, texture(uB, db).rgb, uMix);
+  }
+  o = vec4(c * uBright, 1.0);
+}`;
+const FS_CONV = `#version 300 es
+precision highp float;
+uniform sampler2D uSrc; uniform int uFace; uniform float uSize;
+uniform int uProj; uniform vec4 uRange; uniform vec2 uSrcSize;
+out vec4 o;
+vec3 faceDir(int f, float sc, float tc){
+  if(f==0) return vec3(1.0,-tc,-sc);
+  if(f==1) return vec3(-1.0,-tc,sc);
+  if(f==2) return vec3(sc,1.0,tc);
+  if(f==3) return vec3(sc,-1.0,-tc);
+  if(f==4) return vec3(sc,-tc,1.0);
+  return vec3(-sc,-tc,-1.0);
+}
+void main(){
+  vec2 st = gl_FragCoord.xy / uSize;
+  float sc = st.x*2.0-1.0, tc = st.y*2.0-1.0;
+  vec3 d = normalize(faceDir(uFace, sc, tc));
+  float lon = atan(d.x, -d.z), lat = asin(clamp(d.y, -1.0, 1.0));
+  float texAng = (2.0/uSize) / pow(1.0 + sc*sc + tc*tc, 0.75);
+  vec2 uv = vec2(0.0); bool inside = true; float lod = 0.0;
+  if (uProj == 0) {
+    float span = uRange.y - uRange.x;
+    float u = (lon - uRange.x) / span;
+    if (span > 6.2) u = fract(u);
+    float v = (uRange.w - lat) / (uRange.w - uRange.z);
+    uv = vec2(u, v);
+    inside = v >= 0.0 && v <= 1.0 && u >= 0.0 && u <= 1.0;
+    float px = span / uSrcSize.x * max(cos(lat), 0.002);
+    lod = log2(max(texAng / px, 1.0));
+  } else if (uProj == 1) {
+    float span = uRange.y - uRange.x;
+    float u = (lon - uRange.x) / span;
+    float v = 0.5 - tan(lat) / (2.0 * uRange.z);
+    uv = vec2(u, v);
+    inside = u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0 && abs(lat) < 1.45;
+    lod = log2(max(texAng / (span / uSrcSize.x), 1.0));
+  } else {
+    if (d.z > -0.0001) inside = false;
+    float x = d.x / -d.z, y = d.y / -d.z;
+    uv = vec2(0.5 + x / (2.0*uRange.x), 0.5 - y / (2.0*uRange.y));
+    inside = inside && uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+    lod = log2(max(texAng / (2.0*atan(uRange.x) / uSrcSize.x), 1.0));
+  }
+  vec3 c = inside ? textureLod(uSrc, uv, lod).rgb : vec3(0.06, 0.065, 0.075);
+  o = vec4(c, 1.0);
+}`;
+
+function compile(gl, type, src) {
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'shader error');
+  return s;
+}
+function program(gl, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, VS)); gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) || 'link error');
+  const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name] = gl.getUniformLocation(p, info.name); }
+  return { p, u };
+}
+
+const CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l8 7-8 7"/></svg>';
+const DOORICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
+/* ---------------- image helpers ---------------- */
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+async function imageSize(blob) {
+  // read pixel size from the file header without decoding (JPEG / PNG / WebP)
+  try {
+    const buf = new DataView(await blob.slice(0, Math.min(blob.size, 512 * 1024)).arrayBuffer());
+    if (buf.getUint16(0) === 0xFFD8) {
+      let o = 2;
+      while (o + 9 < buf.byteLength) {
+        if (buf.getUint8(o) !== 0xFF) { o++; continue; }
+        const m = buf.getUint8(o + 1);
+        if (m === 0xD8 || m === 0x01 || (m >= 0xD0 && m <= 0xD7)) { o += 2; continue; }
+        const len = buf.getUint16(o + 2);
+        if ((m >= 0xC0 && m <= 0xC3) || (m >= 0xC5 && m <= 0xC7) || (m >= 0xC9 && m <= 0xCB) || (m >= 0xCD && m <= 0xCF))
+          return { w: buf.getUint16(o + 7), h: buf.getUint16(o + 5) };
+        o += 2 + len;
+      }
+    } else if (buf.getUint32(0) === 0x89504E47) return { w: buf.getUint32(16), h: buf.getUint32(20) };
+  } catch (e) { /* unknown */ }
+  return null;
+}
+async function decodeBlob(blob, maxW) {
+  // returns ImageBitmap or canvas no wider than maxW
+  let bmp = null;
+  const hdr = await imageSize(blob);
+  if (hdr && hdr.w > maxW) {
+    // big photo: ask the browser to decode straight to the smaller size (saves a lot of memory on phones)
+    const tw = maxW, th = Math.max(1, Math.round(hdr.h * maxW / hdr.w));
+    try {
+      const r = await createImageBitmap(blob, { resizeWidth: tw, resizeHeight: th, resizeQuality: 'high' });
+      if (r.width === tw) return { img: r, w: tw, h: th, srcW: hdr.w, srcH: hdr.h };
+      if (r.close) r.close();
+    } catch (e) { /* not supported: fall through */ }
+  }
+  try { bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' }); }
+  catch (e) {
+    bmp = await new Promise((res, rej) => {
+      const url = URL.createObjectURL(blob); const im = new Image();
+      im.onload = () => { res(im); setTimeout(() => URL.revokeObjectURL(url), 1000); };
+      im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('This file could not be read as an image.')); };
+      im.src = url;
+    });
+  }
+  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight;
+  if (!w || !h) throw new Error('This file could not be read as an image.');
+  if (w <= maxW) return { img: bmp, w, h };
+  const tw = maxW, th = Math.max(1, Math.round(h * maxW / w));
+  try {
+    const r = await createImageBitmap(blob, { imageOrientation: 'from-image', resizeWidth: tw, resizeHeight: th, resizeQuality: 'high' });
+    if (r.width === tw) { if (bmp.close) bmp.close(); return { img: r, w: tw, h: th, srcW: w, srcH: h }; }
+    if (r.close) r.close();
+  } catch (e) { /* fall through to canvas */ }
+  const c = document.createElement('canvas'); c.width = tw; c.height = th;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(bmp, 0, 0, tw, th);
+  if (bmp.close) bmp.close();
+  return { img: c, w: tw, h: th, srcW: w, srcH: h };
+}
+
+/* read panorama metadata (GPano XMP) and focal length (EXIF) from a JPEG */
+async function readMeta(blob) {
+  const out = {};
+  try {
+    const buf = await blob.slice(0, Math.min(blob.size, 256 * 1024)).arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let txt = ''; const CH = 8192;
+    for (let i = 0; i < bytes.length; i += CH) txt += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    const g = name => { const m = txt.match(new RegExp('GPano:' + name + '(?:="|>)\\s*([-0-9.]+)')); return m ? parseFloat(m[1]) : null; };
+    const fw = g('FullPanoWidthPixels'), fh = g('FullPanoHeightPixels'), cw = g('CroppedAreaImageWidthPixels'), ch = g('CroppedAreaImageHeightPixels'),
+          cl = g('CroppedAreaLeftPixels'), ct = g('CroppedAreaTopPixels');
+    if (fw && fh && cw && ch && cl !== null && ct !== null) out.gpano = { fw, fh, cw, ch, cl, ct };
+    if (/GPano:ProjectionType(?:="|>)\s*equirectangular/i.test(txt)) out.equirect = true;
+    // EXIF focal length in 35mm (tag 0xA405)
+    const dv = new DataView(buf);
+    if (dv.getUint16(0) === 0xFFD8) {
+      let off = 2;
+      while (off + 4 < dv.byteLength) {
+        const marker = dv.getUint16(off), len = dv.getUint16(off + 2);
+        if (marker === 0xFFE1 && dv.getUint32(off + 4) === 0x45786966) {
+          const t = off + 10; const le = dv.getUint16(t) === 0x4949;
+          const u16 = o => dv.getUint16(t + o, le), u32 = o => dv.getUint32(t + o, le);
+          const scan = ifd => { const n = u16(ifd); for (let i = 0; i < n; i++) { const e = ifd + 2 + i * 12; const tag = u16(e);
+              if (tag === 0xA405) out.f35 = u16(e + 8); if (tag === 0x8769) scan(u32(e + 8)); } };
+          scan(u32(4)); break;
+        }
+        if ((marker & 0xFF00) !== 0xFF00) break;
+        off += 2 + len;
+      }
+    }
+  } catch (e) { /* metadata is optional */ }
+  return out;
+}
+
+/* =====================================================================
+   Pano — the viewer
+   ===================================================================== */
+class Pano {
+  constructor(canvas, layer, opts = {}) {
+    this.canvas = canvas; this.layer = layer; this.opts = opts;
+    this.yaw = 0; this.pitch = 0; this.fov = 75; this.targetFov = 75;
+    // what is drawn (dYaw/dPitch) follows the input camera (yaw/pitch) a few milliseconds behind,
+    // which irons out uneven touch / mouse event timing so motion never looks jerky
+    this.dYaw = 0; this.dPitch = 0; this.smoothMs = 24; this.resampleMs = 16; this.hist = null;
+    this.vYaw = 0; this.vPitch = 0; this._cw = 0; this._ch = 0;
+    this.scene = null; this.scenes = new Map(); this.hotspotEls = new Map();
+    this.listeners = {}; this.trans = null; this.dirty = true; this.lastInteract = now();
+    this.autoRotate = !!opts.autoRotate; this.autoSpeed = 3.2; this.camHeight = 1.5;
+    this.pointers = new Map(); this.pickMode = false; this.editMode = false; this.busy = false;
+    this.cubeLRU = []; this.maxHi = (isIOS || (navigator.maxTouchPoints > 0 && Math.min(screen.width, screen.height) < 820)) ? 2 : 4;
+    this.bright = 1;
+    this._initGL();
+    this.canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); this.lost = true; this.emit('contextlost'); }, false);
+    this.canvas.addEventListener('webglcontextrestored', () => { this.lost = false; this._initGL(); this.gen = (this.gen || 0) + 1; this.cubeLRU = []; for (const s of this.scenes.values()) { s.cube = null; s.cubeLo = null; s.hiReady = false; s.loadingLo = s.loadingHi = null; } if (this.scene) { const sc = this.scene; this._ensureLo(sc).then(() => this._ensureHi(sc)).then(() => { this.dirty = true; }).catch(() => {}); } this.emit('contextrestored'); }, false);
+    this._bind();
+    this._raf = this._raf.bind(this);
+    requestAnimationFrame(this._raf);
+  }
+  on(ev, fn) { (this.listeners[ev] = this.listeners[ev] || []).push(fn); }
+  emit(ev, data) { (this.listeners[ev] || []).forEach(f => { try { f(data); } catch (e) { console.error(e); } }); }
+
+  _initGL() {
+    const gl = this.canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
+    if (!gl) throw new Error('webgl2');
+    this.gl = gl;
+    this.maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+    this.maxCube = gl.getParameter(gl.MAX_CUBE_MAP_TEXTURE_SIZE);
+    this.aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+    this.anisoMax = this.aniso ? Math.min(8, gl.getParameter(this.aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)) : 0;
+    this.pView = program(gl, FS_VIEW);
+    this.pConv = program(gl, FS_CONV);
+    this.vao = gl.createVertexArray();
+    this.fbo = gl.createFramebuffer();
+    this.blackCube = this._makeCube(1, false);
+    const px = new Uint8Array([16, 17, 19, 255]);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.blackCube);
+    for (let i = 0; i < 6; i++) gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, 0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  }
+  _makeCube(size, mips) {
+    const gl = this.gl; const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, t);
+    const levels = mips ? Math.floor(Math.log2(size)) + 1 : 1;
+    gl.texStorage2D(gl.TEXTURE_CUBE_MAP, levels, gl.RGBA8, size, size);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, mips ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (this.aniso && mips) gl.texParameterf(gl.TEXTURE_CUBE_MAP, this.aniso.TEXTURE_MAX_ANISOTROPY_EXT, this.anisoMax);
+    t._size = size; t._bytes = size * size * 6 * 4 * (mips ? 1.34 : 1);
+    return t;
+  }
+  /* ---------------- GPU upload helpers ----------------
+     Big images are uploaded in small pieces spread over several animation
+     frames, so the view keeps moving smoothly while a room loads. */
+  _srcParams(proj) {
+    const gl = this.gl; const full = proj.type === 0 && (proj.lonMax - proj.lonMin) > 6.2;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, full ? gl.REPEAT : gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+  _unpack() {
+    const gl = this.gl;
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+  }
+  _convertFaces(src, w, h, proj, cube, size, f0, f1) {
+    const gl = this.gl; const P = this.pConv;
+    gl.useProgram(P.p); gl.bindVertexArray(this.vao);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src); gl.uniform1i(P.u.uSrc, 0);
+    gl.uniform1f(P.u.uSize, size); gl.uniform1i(P.u.uProj, proj.type);
+    if (proj.type === 0) gl.uniform4f(P.u.uRange, proj.lonMin, proj.lonMax, proj.latMin, proj.latMax);
+    else if (proj.type === 1) gl.uniform4f(P.u.uRange, proj.lonMin, proj.lonMax, proj.tanV, 0);
+    else gl.uniform4f(P.u.uRange, proj.tanH, proj.tanV, 0, 0);
+    gl.uniform2f(P.u.uSrcSize, w, h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.viewport(0, 0, size, size);
+    for (let f = f0; f <= f1; f++) {
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_CUBE_MAP_POSITIVE_X + f, cube, 0);
+      gl.uniform1i(P.u.uFace, f);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  /* small image -> cube in one go (used for quick low-res previews) */
+  cubeFromImage(img, w, h, proj, faceSize) {
+    const gl = this.gl;
+    const src = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, src); this._unpack();
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    this._srcParams(proj); gl.generateMipmap(gl.TEXTURE_2D);
+    const size = Math.min(faceSize, this.maxCube);
+    const cube = this._makeCube(size, true);
+    this._convertFaces(src, w, h, proj, cube, size, 0, 5);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube); gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    gl.deleteTexture(src);
+    this.dirty = true;
+    return cube;
+  }
+  /* big image -> cube, spread over frames; returns null if aborted */
+  async cubeFromImageAsync(img, w, h, proj, faceSize, aborted, s) {
+    const gl = this.gl;
+    await this._gpuSlot(s);                         // even allocating GPU memory waits for a still moment
+    if (aborted()) return null;
+    const src = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, src);
+    gl.texStorage2D(gl.TEXTURE_2D, Math.floor(Math.log2(Math.max(w, h))) + 1, gl.RGBA8, w, h);
+    const rows = Math.max(64, Math.floor((1 << 21) / w));
+    let strips = true;
+    for (let y = 0; y < h; y += rows) {
+      const hh = Math.min(rows, h - y);
+      let part = null;
+      if (strips) { try { part = await createImageBitmap(img, 0, y, w, hh); } catch (e) { strips = false; } }
+      await this._gpuSlot(s);
+      if (aborted()) { if (part && part.close) part.close(); gl.deleteTexture(src); return null; }
+      gl.bindTexture(gl.TEXTURE_2D, src); this._unpack();
+      if (part) { gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, y, gl.RGBA, gl.UNSIGNED_BYTE, part); if (part.close) part.close(); }
+      else { gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, img); break; }
+    }
+    await this._gpuSlot(s);
+    if (aborted()) { gl.deleteTexture(src); return null; }
+    gl.bindTexture(gl.TEXTURE_2D, src); this._srcParams(proj); gl.generateMipmap(gl.TEXTURE_2D);
+    const size = Math.min(faceSize, this.maxCube);
+    const cube = this._makeCube(size, true);
+    for (let f = 0; f < 6; f++) {
+      await this._gpuSlot(s);
+      if (aborted()) { gl.deleteTexture(src); gl.deleteTexture(cube); return null; }
+      this._convertFaces(src, w, h, proj, cube, size, f, f);
+    }
+    await this._gpuSlot(s);
+    gl.deleteTexture(src);
+    if (aborted()) { gl.deleteTexture(cube); return null; }
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube); gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    this.dirty = true;
+    return cube;
+  }
+  /* Waits for a good moment for heavy GPU work (uploading or converting photos).
+     Work runs only while the view is still - a frame that takes longer then is invisible - and
+     never during a walk-through. Exceptions: a room someone is waiting for right now (urgent, or
+     nothing on screen yet), and the room you are in if you keep moving for 2 s (so it gets sharp). */
+  async _gpuSlot(s) {
+    await nextFrame();
+    const t0 = now();
+    for (;;) {
+      if (this.lost) return;
+      if (!this.trans) {
+        if (s && (s.urgent || (s === this.scene && !s.cube))) return;
+        if (this._calm()) return;
+        if (s && s === this.scene && now() - t0 > 2000) return;
+      }
+      await nextFrame();
+    }
+  }
+  /* true when nothing on screen is moving because of the user */
+  _calm() {
+    if (this.trans || this.pointers.size) return false;
+    if (now() - this.lastInteract < 160) return false;
+    if (this.vYaw !== 0 || this.vPitch !== 0) return false;                              // still gliding after a swipe
+    if (Math.abs(this.fov - this.targetFov) > 0.25) return false;                        // zoom still easing
+    if (Math.abs(angDiff(this.dYaw, this.yaw)) > 0.3 || Math.abs(this.pitch - this.dPitch) > 0.3) return false;
+    return true;
+  }
+  /* six pre-cut faces -> cube, one face per frame */
+  async cubeFromFacesAsync(imgs, aborted, s) {
+    const gl = this.gl; const size = imgs[0].width;
+    await this._gpuSlot(s);
+    if (aborted()) return null;
+    const cube = this._makeCube(size, true);
+    for (let f = 0; f < 6; f++) {
+      await this._gpuSlot(s);
+      if (aborted()) { gl.deleteTexture(cube); return null; }
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube); this._unpack();
+      gl.texSubImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + f, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, imgs[f]);
+    }
+    await this._gpuSlot(s);
+    if (aborted()) { gl.deleteTexture(cube); return null; }
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, cube); gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+    this.dirty = true;
+    return cube;
+  }
+  _touchLRU(scene) {
+    this.cubeLRU = this.cubeLRU.filter(s => s !== scene); this.cubeLRU.push(scene);
+    while (this.cubeLRU.length > this.maxHi) {
+      const old = this.cubeLRU.find(s => s !== this.scene && (!this.trans || (s !== this.trans.from && s !== this.trans.to)));
+      if (!old) break;
+      this.cubeLRU = this.cubeLRU.filter(s => s !== old);
+      if (old.cube && old.cube !== old.cubeLo) this.gl.deleteTexture(old.cube);
+      old.cube = old.cubeLo || null; old.hiReady = false;
+    }
+  }
+  /* drop everything on the GPU for one room (for example after its projection changed) */
+  invalidate(s) {
+    if (!s) return;
+    if (s.cube && s.cube !== s.cubeLo) this.gl.deleteTexture(s.cube);
+    if (s.cubeLo) this.gl.deleteTexture(s.cubeLo);
+    s.cube = s.cubeLo = null; s.hiReady = false; s.loadingLo = s.loadingHi = null; s.epoch = (s.epoch || 0) + 1;
+    this.cubeLRU = this.cubeLRU.filter(x => x !== s);
+  }
+
+  /* -------- tour / scenes -------- */
+  setTour(tour) {
+    this.gen = (this.gen || 0) + 1;
+    for (const s of this.scenes.values()) this.invalidate(s);
+    this.scenes = new Map(); this.cubeLRU = []; this.scene = null; this.trans = null;
+    tour.scenes.forEach(s => this.scenes.set(s.id, Object.assign({ hotspots: [], startYaw: 0, startPitch: 0 }, s, { cube: null, cubeLo: null, hiReady: false, loadingLo: null, loadingHi: null, epoch: 0 })));
+    this.tour = tour;
+    this._clearHotspots();
+  }
+  getScene(id) { return this.scenes.get(id); }
+  limitsOf(s) {
+    const p = s.proj || { type: 0, lonMin: -Math.PI, lonMax: Math.PI, latMin: -Math.PI / 2, latMax: Math.PI / 2 };
+    if (p.type === 0) return { yaw0: p.lonMin / DEG, yaw1: p.lonMax / DEG, p0: p.latMin / DEG, p1: p.latMax / DEG, full: (p.lonMax - p.lonMin) > 6.2 };
+    if (p.type === 1) { const v = Math.atan(p.tanV) / DEG; return { yaw0: p.lonMin / DEG, yaw1: p.lonMax / DEG, p0: -v, p1: v, full: (p.lonMax - p.lonMin) > 6.2 }; }
+    const hh = Math.atan(p.tanH) / DEG, vv = Math.atan(p.tanV) / DEG;
+    return { yaw0: -hh, yaw1: hh, p0: -vv, p1: vv, full: false, rect: true };
+  }
+  _staleCheck(s) { const gen = this.gen, ep = s.epoch || 0; return () => this.lost || gen !== this.gen || ep !== (s.epoch || 0); }
+  _track(s, key, p) { s[key] = p; const clear = () => { if (s[key] === p) s[key] = null; }; p.then(clear, clear); return p; }
+  /* quick low-resolution version of a room: lets a transition start immediately */
+  _ensureLo(s) {
+    if (s.cubeLo || s.hiReady) return Promise.resolve(s);
+    if (s.loadingLo) return s.loadingLo;
+    const stale = this._staleCheck(s);
+    return this._track(s, 'loadingLo', (async () => {
+      const src = s.src || {};
+      let blob, proj = s.proj || { type: 0, lonMin: -Math.PI, lonMax: Math.PI, latMin: -Math.PI / 2, latMax: Math.PI / 2 };
+      if (src.faces) { if (!src.preview) return s; const r = await fetch(src.preview); if (!r.ok) throw new Error('This room could not be loaded.'); blob = await r.blob(); }
+      else if (src.blob || src.url) blob = src.blob || await (await fetch(src.url)).blob();
+      else return s;
+      const d = await decodeBlob(blob, 1600);
+      await this._gpuSlot(s);
+      if (stale()) { if (d.img.close) d.img.close(); return s; }
+      const lo = this.cubeFromImage(d.img, d.w, d.h, proj, 512);
+      if (d.img.close) d.img.close();
+      s.cubeLo = lo; if (!s.cube) s.cube = lo;
+      this.dirty = true; this.emit('lowres', s);
+      return s;
+    })());
+  }
+  /* full-resolution version, streamed to the GPU without freezing the page */
+  _ensureHi(s) {
+    if (s.hiReady && s.cube) { this._touchLRU(s); return Promise.resolve(s); }
+    if (s.loadingHi) return s.loadingHi;
+    const stale = this._staleCheck(s);
+    return this._track(s, 'loadingHi', (async () => {
+      const src = s.src || {};
+      let cube = null;
+      if (src.faces) {
+        const imgs = await Promise.all(src.faces.map(async u => { const r = await fetch(u); if (!r.ok) throw new Error('This room could not be loaded.'); return createImageBitmap(await r.blob()); }));
+        if (!stale()) cube = await this.cubeFromFacesAsync(imgs, stale, s);
+        imgs.forEach(i => i.close && i.close());
+      } else if (src.blob || src.url) {
+        const blob = src.blob || await (await fetch(src.url)).blob();
+        const maxW = Math.min(this.maxTex, isIOS ? 5760 : 8192);
+        const d = await decodeBlob(blob, maxW);
+        const p = s.proj; let effW = d.w;
+        if (p.type === 0 || p.type === 1) effW = d.w * (2 * Math.PI) / (p.lonMax - p.lonMin);
+        else effW = d.w * (2 * Math.PI) / (2 * Math.atan(p.tanH));
+        let face = Math.round(effW / 4 / 128) * 128; face = clamp(face, 512, isIOS ? 1536 : 2048);
+        if (!stale()) cube = await this.cubeFromImageAsync(d.img, d.w, d.h, p, face, stale, s);
+        if (d.img.close) d.img.close();
+      }
+      if (!cube) return s;
+      if (stale()) { this.gl.deleteTexture(cube); return s; }
+      if (s.cube && s.cube !== s.cubeLo) this.gl.deleteTexture(s.cube);
+      s.cube = cube; s.hiReady = true;
+      this._touchLRU(s); this.dirty = true; this.emit('hires', s);
+      return s;
+    })());
+  }
+  preload(id) { const s = this.scenes.get(id); if (s) this._ensureLo(s).then(() => this._ensureHi(s)).catch(() => {}); }
+
+  async show(id, opts = {}) {
+    const s = this.scenes.get(id); if (!s) return;
+    this.scene = s; this._applyStart(s, opts);
+    this._clearHotspots(); this.dirty = true;
+    this.emit('scene', s);
+    if (!s.cube) { try { await this._ensureLo(s); } catch (e) { /* the full version may still work */ } }
+    if (this.scene === s) { this._buildHotspots(); this.dirty = true; }
+    try { await this._ensureHi(s); } catch (e) { if (!s.cube) this.emit('error', e); }
+    if (this.scene === s) { this.emit('loaded', s); this._preloadNeighbors(); }
+  }
+  _applyStart(s, opts) {
+    this.yaw = opts.yaw != null ? opts.yaw : (s.startYaw || 0);
+    this.pitch = opts.pitch != null ? opts.pitch : (s.startPitch || 0);
+    this.fov = this.targetFov = this.defaultFov(s);
+    this.vYaw = this.vPitch = 0;
+    this._clampView();
+    this.dYaw = this.yaw; this.dPitch = this.pitch;
+  }
+  _waitIdle() {
+    return new Promise(res => { const chk = () => { if (this._calm() && now() - this.lastInteract > 250) res(); else setTimeout(chk, 120); }; chk(); });
+  }
+  _preloadNeighbors() {
+    if (!this.scene) return;
+    const cur = this.scene;
+    const ids = [...new Set((cur.hotspots || []).map(h => h.to))];
+    clearTimeout(this._preT);
+    this._preT = setTimeout(async () => {
+      // 1) low-res copy of every neighbouring room: arrows always respond instantly
+      for (const id of ids) {
+        const s = this.scenes.get(id); if (!s || this.scene !== cur) return;
+        await this._waitIdle(); if (this.scene !== cur) return;
+        try { await this._ensureLo(s); } catch (e) { /* try later */ }
+      }
+      // 2) full-resolution copies, as many as the device's memory budget allows
+      if (this.noPreload) return;
+      let budget = this.maxHi - 1;
+      for (const id of ids) {
+        if (budget-- <= 0) break;
+        const s = this.scenes.get(id); if (!s || this.scene !== cur) return;
+        await this._waitIdle(); if (this.scene !== cur) return;
+        try { await this._ensureHi(s); } catch (e) { /* try later */ }
+      }
+    }, 300);
+  }
+  defaultFov(s) {
+    const a = this.aspect();
+    let f = a < 1 ? clamp(2 * Math.atan(Math.tan(36 * DEG) / a) / DEG, 70, 96) : 75;
+    if (s) {
+      const L = this.limitsOf(s);
+      if (!L.full || L.p1 - L.p0 < 179) f = Math.min(f, (L.p1 - L.p0) * 0.98, L.rect ? (L.yaw1 - L.yaw0) / Math.max(a, 1) * 0.98 : 999);
+    }
+    return f;
+  }
+  aspect() {
+    // cached size (kept fresh by the ResizeObserver): reading layout on every frame can stall phones
+    if (this._cw > 0 && this._ch > 0) return Math.max(0.2, this._cw / this._ch);
+    const r = this.canvas.getBoundingClientRect(); return Math.max(0.2, r.width / Math.max(1, r.height));
+  }
+  fovLimits() {
+    const s = this.scene; let max = this.aspect() < 1 ? 105 : 100, min = 28;
+    if (s) { const L = this.limitsOf(s); if (!L.full || L.p1 - L.p0 < 179) { max = Math.min(max, (L.p1 - L.p0) * 0.99); if (L.rect) max = Math.min(max, 2 * Math.atan(Math.tan((L.yaw1 - L.yaw0) / 2 * DEG) / this.aspect()) / DEG); } }
+    return [Math.min(min, max), max];
+  }
+  _clampView() {
+    const [fmin, fmax] = this.fovLimits();
+    this.fov = clamp(this.fov, fmin, fmax); this.targetFov = clamp(this.targetFov, fmin, fmax);
+    const c = this._limitYP(this.yaw, this.pitch, this.fov); this.yaw = c[0]; this.pitch = c[1];
+  }
+  /* keeps a look direction inside the photo (panoramas and normal photos have edges) */
+  _limitYP(yaw, pitch, fov) {
+    const s = this.scene; if (!s) return [yaw, clamp(pitch, -89.9, 89.9)];
+    const L = this.limitsOf(s); const vh = fov / 2; const hh = Math.atan(Math.tan(vh * DEG) * this.aspect()) / DEG;
+    if (L.full && L.p1 - L.p0 >= 179) pitch = clamp(pitch, -89.9, 89.9);
+    else { const lo = L.p0 + vh, hi = L.p1 - vh; pitch = lo > hi ? (L.p0 + L.p1) / 2 : clamp(pitch, lo, hi); }
+    if (L.full) yaw = wrap(yaw);
+    else { const lo = L.yaw0 + hh, hi = L.yaw1 - hh; yaw = lo > hi ? (L.yaw0 + L.yaw1) / 2 : clamp(yaw, lo, hi); }
+    return [yaw, pitch];
+  }
+
+  /* -------- input -------- */
+  _bind() {
+    const c = this.canvas;
+    c.addEventListener('pointerdown', e => this._down(e));
+    c.addEventListener('pointermove', e => this._move(e));
+    c.addEventListener('pointerup', e => this._up(e));
+    c.addEventListener('pointercancel', e => this._up(e, true));
+    c.addEventListener('lostpointercapture', e => this._up(e, true));
+    c.addEventListener('wheel', e => { e.preventDefault(); this.interact(); const k = e.deltaMode === 1 ? 0.05 : 0.0016; this.targetFov *= Math.exp(e.deltaY * k); this._clampView(); this.dirty = true; }, { passive: false });
+    c.addEventListener('keydown', e => {
+      const k = e.key; let used = true;
+      if (k === 'ArrowLeft') this.vYaw = -0.09; else if (k === 'ArrowRight') this.vYaw = 0.09;
+      else if (k === 'ArrowUp') this.vPitch = 0.07; else if (k === 'ArrowDown') this.vPitch = -0.07;
+      else if (k === '+' || k === '=') this.zoomBy(0.85); else if (k === '-' || k === '_') this.zoomBy(1 / 0.85);
+      else used = false;
+      if (used) { e.preventDefault(); this.interact(); this.dirty = true; }
+    });
+    c.addEventListener('dblclick', e => { if (this.pickMode) return; this.zoomBy(this.targetFov > 55 ? 0.6 : 1.6); });
+    const ro = new ResizeObserver(() => { this._resize(); });
+    ro.observe(c);
+    this._resize();
+    document.addEventListener('visibilitychange', () => { this.dirty = true; this._t = now(); });
+  }
+  _resize() {
+    const r = this.canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this._cw = r.width; this._ch = r.height;
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (this.canvas.width !== w || this.canvas.height !== h) { this.canvas.width = w; this.canvas.height = h; }
+    this._clampView(); this.dirty = true;
+  }
+  interact() { this.lastInteract = now(); if (this.autoRotateActive) { this.autoRotateActive = false; } this.emit('interact'); }
+  zoomBy(f) { this.targetFov *= f; this._clampView(); this.interact(); this.dirty = true; }
+  _down(e) {
+    if (this.trans) return;
+    this.canvas.focus({ preventScroll: true });
+    this.canvas.setPointerCapture(e.pointerId);
+    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t0: now() });
+    this.vYaw = this.vPitch = 0; this.samples = []; this.interact();
+    // input history: the drawn view is interpolated from it at a fixed small delay (see _sampleInput)
+    this.hist = this.pointers.size === 1 ? [{ t: evTime(e), y: this.yaw, p: this.pitch }] : null;
+    if (this.pointers.size === 2) { const [a, b] = [...this.pointers.values()]; this.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), fov: this.targetFov }; }
+    this.canvas.classList.add('dragging');
+  }
+  _move(e) {
+    const p = this.pointers.get(e.pointerId); if (!p) return;
+    if (this.pointers.size === 1) {
+      const h = this._ch || this.canvas.getBoundingClientRect().height || 1;
+      const k = this.fov / h;
+      // use every raw sample the browser merged into this event, each with its own time stamp
+      let list = null; try { list = e.getCoalescedEvents ? e.getCoalescedEvents() : null; } catch (err) { list = null; }
+      if (!list || !list.length) list = [e];
+      for (const ev of list) {
+        const dx = ev.clientX - p.x, dy = ev.clientY - p.y; p.x = ev.clientX; p.y = ev.clientY;
+        if (!dx && !dy) continue;
+        this.yaw -= dx * k; this.pitch += dy * k; this._clampView();
+        const t = evTime(ev); this.samples.push({ t, dyaw: -dx * k, dp: dy * k });
+        if (this.hist) { this.hist.push({ t, y: this.yaw, p: this.pitch }); if (this.hist.length > 32) this.hist.shift(); }
+      }
+      const tn = now(); while (this.samples.length && tn - this.samples[0].t > 90) this.samples.shift();
+      this.dirty = true;
+    } else {
+      p.x = e.clientX; p.y = e.clientY;
+      if (this.pointers.size === 2 && this.pinch) {
+        const [a, b] = [...this.pointers.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d > 10) { this.targetFov = this.fov = this.pinch.fov * this.pinch.d / d; this._clampView(); this.dirty = true; }
+      }
+    }
+    this.interact();
+  }
+  _up(e, cancel) {
+    const p = this.pointers.get(e.pointerId); if (!p) return;
+    this.pointers.delete(e.pointerId);
+    if (this.pointers.size < 2) this.pinch = null;
+    this.hist = this.pointers.size === 1 ? [{ t: now(), y: this.yaw, p: this.pitch }] : null;
+    if (this.pointers.size === 0) {
+      this.canvas.classList.remove('dragging');
+      const moved = Math.hypot(e.clientX - p.x0, e.clientY - p.y0), dt = now() - p.t0;
+      if (!cancel && moved < 6 && dt < 450) { this._tap(e.clientX, e.clientY); return; }
+      if (this.samples && this.samples.length >= 2) {
+        const span = Math.max(16, this.samples[this.samples.length - 1].t - this.samples[0].t);
+        let sy = 0, sp = 0; this.samples.forEach(s => { sy += s.dyaw; sp += s.dp; });
+        const recent = now() - this.samples[this.samples.length - 1].t < 60;
+        if (recent) { this.vYaw = clamp(sy / span, -0.6, 0.6); this.vPitch = clamp(sp / span, -0.4, 0.4); }
+      }
+    }
+  }
+  _tap(x, y) {
+    if (this.pickMode) { const yp = this.screenToYawPitch(x, y); this.emit('pick', Object.assign({ x, y }, yp)); return; }
+    this.emit('tap', { x, y });
+  }
+  screenToYawPitch(x, y) {
+    const r = this.canvas.getBoundingClientRect();
+    const nx = ((x - r.left) / r.width) * 2 - 1, ny = 1 - ((y - r.top) / r.height) * 2;
+    const B = camBasis(this.dYaw, this.dPitch); const tv = Math.tan(this.fov * DEG / 2), th = tv * this.aspect();
+    const d = [B.f[0] + nx * th * B.r[0] + ny * tv * B.u[0], B.f[1] + nx * th * B.r[1] + ny * tv * B.u[1], B.f[2] + nx * th * B.r[2] + ny * tv * B.u[2]];
+    const l = Math.hypot(d[0], d[1], d[2]);
+    return { yaw: Math.atan2(d[0], -d[2]) / DEG, pitch: Math.asin(d[1] / l) / DEG };
+  }
+
+  /* -------- hotspots -------- */
+  _clearHotspots() { this.layer.innerHTML = ''; this.hotspotEls.clear(); }
+  refreshHotspots() { this._clearHotspots(); if (this.scene) this._buildHotspots(); this.dirty = true; }
+  _buildHotspots() {
+    const s = this.scene; if (!s) return;
+    (s.hotspots || []).forEach(h => {
+      const tgt = this.scenes.get(h.to); if (!tgt) return;
+      const el = document.createElement('button'); el.className = 'hs'; el.type = 'button';
+      const floor = h.pitch < -7;
+      el.innerHTML = floor ? `<span class="disk"><span class="ring"></span><span class="chev">${CHEVRON}</span></span><span class="label"></span>`
+                           : `<span class="bill">${DOORICON}</span><span class="label"></span>`;
+      el.querySelector('.label').textContent = tgt.name;
+      el.setAttribute('aria-label', 'Go to ' + tgt.name);
+      if (this.editMode) el.classList.add('editing');
+      el.addEventListener('pointerdown', e => e.stopPropagation());
+      el.addEventListener('click', e => { e.stopPropagation(); this.emit('hotspot', { hotspot: h, el, x: e.clientX, y: e.clientY }); });
+      this.layer.appendChild(el);
+      this.hotspotEls.set(h, { el, floor, lbl: el.querySelector('.label'), disk: el.querySelector('.disk'), chev: el.querySelector('.chev'), vis: '', z: '' });
+    });
+    this._placeHotspots();
+  }
+  _project(B, th, tv, W, H, v) {
+    const z = dot(v, B.f); if (z <= 1e-4) return null;
+    const x = dot(v, B.r) / (z * th), y = dot(v, B.u) / (z * tv);
+    return [(x * 0.5 + 0.5) * W, (0.5 - y * 0.5) * H, z];
+  }
+  _placeHotspots(cam) {
+    if (!this.hotspotEls.size) return;
+    let W = this._cw, H = this._ch;
+    if (!(W > 0 && H > 0)) { const r = this.canvas.getBoundingClientRect(); W = r.width; H = r.height; }
+    const c = cam || { yaw: this.dYaw, pitch: this.dPitch, fov: this.fov };
+    const B = camBasis(c.yaw, c.pitch); const tv = Math.tan(c.fov * DEG / 2), th = tv * (W / H);
+    const hide = !!this.trans;
+    // only touch a style when its value really changes: fewer style recalculations per frame
+    const vis = (o, v) => { if (o.vis !== v) { o.vis = v; o.el.style.visibility = v; } };
+    for (const [h, o] of this.hotspotEls) {
+      const d = dirOf(h.yaw, h.pitch);
+      const lbl = o.lbl;
+      if (hide) { vis(o, 'hidden'); continue; }
+      if (o.floor) {
+        const k = this.camHeight / Math.max(0.05, -d[1]);
+        const P = [d[0] * k, d[1] * k, d[2] * k];
+        const R0 = 0.24;
+        const p0 = this._project(B, th, tv, W, H, P);
+        const pa = this._project(B, th, tv, W, H, [P[0] + R0, P[1], P[2]]);
+        const pb = this._project(B, th, tv, W, H, [P[0], P[1], P[2] + R0]);
+        if (!p0 || !pa || !pb || p0[0] < -120 || p0[0] > W + 120 || p0[1] < -120 || p0[1] > H + 120) { vis(o, 'hidden'); continue; }
+        let a = (pa[0] - p0[0]) / 50, b = (pa[1] - p0[1]) / 50, cc = (pb[0] - p0[0]) / 50, dd = (pb[1] - p0[1]) / 50;
+        const det = Math.sqrt(Math.abs(a * dd - b * cc)); const want = clamp(det, 0.42, 1.25) / Math.max(det, 1e-4);
+        a *= want; b *= want; cc *= want; dd *= want;
+        const ang = Math.atan2(P[2], P[0]) / DEG;
+        vis(o, 'visible');
+        o.el.style.transform = `translate3d(${p0[0].toFixed(1)}px, ${p0[1].toFixed(1)}px, 0)`;
+        o.disk.style.transform = `matrix(${a.toFixed(4)}, ${b.toFixed(4)}, ${cc.toFixed(4)}, ${dd.toFixed(4)}, 0, 0)`;
+        o.chev.style.transform = `rotate(${ang.toFixed(1)}deg)`;
+        const ext = Math.max(Math.abs(b), Math.abs(dd)) * 50;
+        lbl.style.transform = `translate(-50%, ${(ext + 8).toFixed(1)}px)`;
+        const z = String(1000 - Math.round(p0[2] * 10)); if (o.z !== z) { o.z = z; o.el.style.zIndex = z; }
+      } else {
+        const p0 = this._project(B, th, tv, W, H, d);
+        if (!p0 || p0[0] < -80 || p0[0] > W + 80 || p0[1] < -80 || p0[1] > H + 80) { vis(o, 'hidden'); continue; }
+        vis(o, 'visible');
+        o.el.style.transform = `translate3d(${p0[0].toFixed(1)}px, ${p0[1].toFixed(1)}px, 0)`;
+        lbl.style.transform = 'translate(-50%, 34px)';
+      }
+    }
+  }
+  setHotspotLoading(h, on) { const o = this.hotspotEls.get(h); if (o) o.el.classList.toggle('loading', !!on); }
+
+  /* -------- navigation with walk-through transition -------- */
+  async goTo(id, via) {
+    if (this.busy || !this.scenes.has(id)) return;
+    const to = this.scenes.get(id), from = this.scene;
+    if (to === from) return;
+    this.busy = true; this.interact(); this.vYaw = this.vPitch = 0;
+    try {
+      if (!to.cube) {
+        // nothing cached yet: fetch the small preview first (a fraction of a second)
+        if (via) this.setHotspotLoading(via, true);
+        to.urgent = true;                            // the user is waiting for this room: no waiting for a still moment
+        try { await this._ensureLo(to); } catch (e) { /* fall back to full load */ }
+        if (!to.cube) { try { await this._ensureHi(to); } catch (e) { /* reported below */ } }
+        to.urgent = false;
+        if (via) this.setHotspotLoading(via, false);
+        if (!to.cube) throw new Error('This room could not be loaded.');
+      }
+      this._ensureHi(to).catch(() => {});          // the sharp version streams in while we move
+      const A0 = { yaw: this.dYaw, pitch: this.dPitch, fov: this.fov };   // start from exactly what is on screen
+      const yT = via ? A0.yaw + angDiff(A0.yaw, via.yaw) : A0.yaw;
+      const pT = via ? clamp(via.pitch * 0.3, -14, 4) : A0.pitch;
+      const endFov = this.defaultFov(to);
+      const arrive = via && via.arriveYaw != null ? via.arriveYaw : (to.startYaw || 0);
+      const bStart = { yaw: via ? arrive : (to.startYaw || 0), pitch: via ? pT * 0.5 : (to.startPitch || 0), fov: via ? endFov * 0.62 : endFov * 0.9 };
+      const bEnd = { yaw: bStart.yaw, pitch: via ? 0 : (to.startPitch || 0), fov: endFov };
+      this.trans = { from, to, mix: 0, a: A0, b: bStart };
+      this._placeHotspots();
+      const turnAmt = Math.abs(yT - A0.yaw) + Math.abs(pT - A0.pitch);
+      const dur = via ? clamp(800 + turnAmt * 2, 800, 1150) : 560;
+      const turnEnd = via ? clamp(0.18 + turnAmt / 450, 0.18, 0.45) : 0;
+      await this._animate(dur, t => {
+        // turning toward the doorway and moving forward happen together, so motion starts on the first frame
+        const turn = turnEnd > 0 ? ease(Math.min(1, t / turnEnd)) : 1;
+        const fly = via ? clamp((t - turnEnd * 0.4) / (1 - turnEnd * 0.4), 0, 1) : t;
+        this.trans.a = { yaw: lerp(A0.yaw, yT, turn), pitch: lerp(A0.pitch, pT, turn), fov: via ? A0.fov * (1 - 0.44 * fly * fly) : A0.fov * (1 - 0.08 * ease(t)) };
+        const bt = via ? smooth(turnEnd * 0.8, 1, t) : ease(t);
+        this.trans.mix = via ? smooth(turnEnd * 0.8, 0.9, t) : smooth(0.1, 0.9, t);
+        this.trans.b = { yaw: bStart.yaw, pitch: lerp(bStart.pitch, bEnd.pitch, bt), fov: lerp(bStart.fov, bEnd.fov, easeOut(bt)) };
+      });
+      this.scene = to; this.yaw = bEnd.yaw; this.pitch = bEnd.pitch; this.fov = this.targetFov = bEnd.fov;
+      this.trans = null; this._clampView(); this.dYaw = this.yaw; this.dPitch = this.pitch;
+      this._clearHotspots(); this._buildHotspots();
+      this.emit('scene', to);
+      if (to.hiReady) this.emit('loaded', to);
+      else this._ensureHi(to).then(() => { if (this.scene === to) this.emit('loaded', to); }).catch(() => {});
+      this._preloadNeighbors();
+    } catch (e) {
+      to.urgent = false; this.trans = null; if (via) this.setHotspotLoading(via, false); this.emit('error', e);
+    } finally { this.busy = false; this.dirty = true; }
+  }
+  _animate(ms, fn) {
+    return new Promise(res => {
+      const reduce = global.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const dur = reduce ? Math.min(ms, 160) : ms; let t0 = null;
+      // progress comes from the frame timestamp, so every frame advances by an even step
+      const step = ts => { if (t0 === null) t0 = ts; const t = Math.min(1, (ts - t0) / dur); fn(t); this.dirty = true; if (t < 1) requestAnimationFrame(step); else res(); };
+      requestAnimationFrame(step);
+    });
+  }
+
+  /* -------- render loop -------- */
+  _raf(t) {
+    requestAnimationFrame(this._raf);
+    if (this.lost || document.hidden) return;
+    const dt = Math.min(64, t - (this._t || t)); this._t = t;
+    if (!this.trans && this.pointers.size === 0) {
+      if (Math.abs(this.vYaw) > 1e-4 || Math.abs(this.vPitch) > 1e-4) {
+        this.yaw += this.vYaw * dt; this.pitch += this.vPitch * dt;
+        const k = Math.pow(0.5, dt / 170); this.vYaw *= k; this.vPitch *= k;
+        if (Math.abs(this.vYaw) < 0.002) this.vYaw = 0; if (Math.abs(this.vPitch) < 0.002) this.vPitch = 0;
+        this._clampView(); this.dirty = true;
+      }
+      if (this.autoRotate && !this.pickMode && now() - this.lastInteract > 3500) {
+        this.autoRotateActive = true;
+        const ramp = Math.min(1, (now() - this.lastInteract - 3500) / 1500);
+        const L = this.scene ? this.limitsOf(this.scene) : { full: true };
+        if (L.full) { this.yaw += this.autoSpeed * ramp * dt / 1000; this.pitch += (0 - this.pitch) * Math.min(1, dt / 900) * ramp; this.dirty = true; }
+      }
+      if (Math.abs(this.fov - this.targetFov) > 0.01) { this.fov += (this.targetFov - this.fov) * Math.min(1, dt / 90); this._clampView(); this.dirty = true; }
+    }
+    if (!this.trans) {
+      // While a finger / mouse drags, the view is drawn where the pointer was a few ms ago, interpolated
+      // between real input samples: every frame then moves by an even step even when input arrives unevenly.
+      let ty = this.yaw, tp = this.pitch;
+      if (this.hist && this.pointers.size === 1 && this.resampleMs > 0) { const q = this._sampleInput(t - this.resampleMs); ty = q[0]; tp = q[1]; }
+      const ey = angDiff(this.dYaw, ty), ep = tp - this.dPitch;
+      if (Math.abs(ey) > 0.003 || Math.abs(ep) > 0.003) {
+        const a = this.smoothMs > 0 ? 1 - Math.exp(-dt / this.smoothMs) : 1;
+        const c = this._limitYP(this.dYaw + ey * a, this.dPitch + ep * a, this.fov);
+        this.dYaw = c[0]; this.dPitch = c[1]; this.dirty = true;
+      } else if (ey !== 0 || ep !== 0) { this.dYaw = ty; this.dPitch = tp; this.dirty = true; }
+    }
+    if (!this.dirty) return;
+    this.dirty = false;
+    this._draw();
+    this._placeHotspots(this.trans ? null : undefined);
+    this.emit('view', { yaw: this.dYaw, pitch: this.dPitch, fov: this.fov });
+  }
+  /* pointer position (as a view direction) at time rt, interpolated between recorded input samples */
+  _sampleInput(rt) {
+    const h = this.hist, n = h.length;
+    if (n === 1 || rt <= h[0].t) return [h[0].y, h[0].p];
+    const last = h[n - 1];
+    if (rt >= last.t) return [last.y, last.p];
+    let j = n - 1; while (j > 1 && h[j - 1].t > rt) j--;
+    const a = h[j - 1], b = h[j]; const k = clamp((rt - a.t) / Math.max(0.001, b.t - a.t), 0, 1);
+    return [a.y + angDiff(a.y, b.y) * k, a.p + (b.p - a.p) * k];
+  }
+  _draw() {
+    const gl = this.gl; const P = this.pView; const W = this.canvas.width, H = this.canvas.height; const asp = W / H;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
+    gl.useProgram(P.p); gl.bindVertexArray(this.vao);
+    let A, Bc, mix = 0, ta, tb;
+    if (this.trans) { A = this.trans.a; Bc = this.trans.b; mix = this.trans.mix; ta = this.trans.from && this.trans.from.cube || this.blackCube; tb = this.trans.to.cube || this.blackCube; }
+    else { A = { yaw: this.dYaw, pitch: this.dPitch, fov: this.fov }; Bc = A; ta = (this.scene && this.scene.cube) || this.blackCube; tb = ta; }
+    const ba = camBasis(A.yaw, A.pitch), bb = camBasis(Bc.yaw, Bc.pitch);
+    const tva = Math.tan(A.fov * DEG / 2), tvb = Math.tan(Bc.fov * DEG / 2);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_CUBE_MAP, ta); gl.uniform1i(P.u.uA, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_CUBE_MAP, tb); gl.uniform1i(P.u.uB, 1);
+    gl.uniform3fv(P.u.uFa, ba.f); gl.uniform3fv(P.u.uRa, ba.r); gl.uniform3fv(P.u.uUa, ba.u); gl.uniform2f(P.u.uTa, tva * asp, tva);
+    gl.uniform3fv(P.u.uFb, bb.f); gl.uniform3fv(P.u.uRb, bb.r); gl.uniform3fv(P.u.uUb, bb.u); gl.uniform2f(P.u.uTb, tvb * asp, tvb);
+    gl.uniform1f(P.u.uMix, mix); gl.uniform2f(P.u.uRes, W, H); gl.uniform1f(P.u.uBright, this.bright);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  lookAt(yaw, pitch, ms = 500) {
+    const y0 = this.yaw, p0 = this.pitch, y1 = this.yaw + angDiff(this.yaw, yaw);
+    return this._animate(ms, t => { const e = ease(t); this.yaw = lerp(y0, y1, e); this.pitch = lerp(p0, pitch, e); this._clampView(); });
+  }
+}
+
+global.Ghoomo = { Pano, decodeBlob, readMeta, isIOS, DEG, clamp, wrap };
+})(window);
+</script>
+
+<script id="app-script">
+(function () {
+'use strict';
+const { Pano, decodeBlob, readMeta, DEG, clamp, wrap } = window.Ghoomo;
+const $ = (s, el = document) => el.querySelector(s);
+const ui = $('#ui');
+const icon = id => { const t = document.getElementById('tpl-icons').content.getElementById(id); return t ? t.outerHTML : ''; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+
+/* ------------------------------------------------------------------ demo tour data */
+const DEMO = window.DEMO_TOUR || { scenes: [], base: '', start: '' };
+
+/* ------------------------------------------------------------------ viewer boot */
+let pano;
+try { pano = new Pano($('#pano'), $('#hsLayer'), { autoRotate: true }); }
+catch (e) {
+  ui.innerHTML = `<div class="scrim"><div class="sheet"><h2>3D view needs a newer browser</h2><p class="sub">This device or browser does not support WebGL 2, which the 360° viewer needs. Please open this page in the latest Chrome, Safari or Edge.</p></div></div>`;
+  return;
+}
+
+let state = { view: 'home', tour: null, mode: 'demo', showPlan: false };
+let hintShown = false;
+
+function toast(msg, ms = 2600) {
+  const el = h(`<div class="toast glass" role="status"></div>`); el.textContent = msg; document.body.appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity .4s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 450); }, ms);
+}
+
+/* ------------------------------------------------------------------ TOUR VIEW UI */
+function demoTourScenes() {
+  return DEMO.scenes.map(s => ({
+    id: s.id, name: s.name, dims: s.dims, area: s.area,
+    src: { faces: [0, 1, 2, 3, 4, 5].map(i => `${DEMO.base}${s.id}_${i}.jpg`), preview: `${DEMO.base}${s.id}_s.jpg` },
+    thumb: `${DEMO.base}${s.id}_t.jpg`,
+    startYaw: s.startYaw, startPitch: s.startPitch || 0, pos: s.pos,
+    hotspots: s.hotspots.map(x => Object.assign({}, x))
+  }));
+}
+
+function renderTourUI(tour, opts = {}) {
+  const isDemo = tour.id === 'demo';
+  ui.innerHTML = '';
+  const top = h(`<div class="topbar">
+      <div class="titlecard glass">
+        ${opts.noBack ? '' : `<button class="ibtn" id="tBack" aria-label="${opts.backLabel || 'Back to start'}">${icon('i-back')}</button>`}
+        <div class="tt"><div class="t1"></div><div class="t2"></div></div>
+      </div>
+      <div class="tools">
+        ${tour.plan ? `<button class="ibtn" id="tPlan" aria-pressed="false" aria-label="Floor plan" title="Floor plan">${icon('i-plan')}</button>` : ''}
+        <button class="ibtn" id="tRot" aria-pressed="${pano.autoRotate}" aria-label="Auto-rotate" title="Auto-rotate">${icon('i-rotate')}</button>
+        <button class="ibtn hide-sm" id="tFull" aria-label="Full screen" title="Full screen">${icon('i-full')}</button>
+        <button class="ibtn" id="tHelp" aria-label="How it works" title="How it works">${icon('i-help')}</button>
+      </div></div>`);
+  top.querySelector('.t1').textContent = tour.title;
+  top.querySelector('.t2').textContent = tour.subtitle || `${tour.scenes.length} rooms`;
+  ui.appendChild(top);
+  const pill = h(`<div class="roompill glass" aria-live="polite"><b></b><span class="mono"></span></div>`); ui.appendChild(pill);
+  const rooms = h(`<nav class="rooms" aria-label="Rooms"><div class="track glass"></div></nav>`); ui.appendChild(rooms);
+  const track = rooms.querySelector('.track');
+  tour.scenes.forEach(s => {
+    const b = h(`<button class="chip" type="button"><img alt="" loading="lazy" decoding="async"><span></span></button>`);
+    b.querySelector('img').src = s.thumb || ''; b.querySelector('span').textContent = s.name; b.dataset.id = s.id;
+    b.addEventListener('click', () => { if (pano.scene && pano.scene.id !== s.id) pano.goTo(s.id, null); });
+    track.appendChild(b);
+  });
+  const zoom = h(`<div class="zoom"><button class="ibtn" id="zIn" aria-label="Zoom in">${icon('i-plus')}</button><button class="ibtn" id="zOut" aria-label="Zoom out">${icon('i-minus')}</button></div>`);
+  ui.appendChild(zoom);
+  zoom.querySelector('#zIn').onclick = () => pano.zoomBy(0.8);
+  zoom.querySelector('#zOut').onclick = () => pano.zoomBy(1.25);
+  if (!hintShown) {
+    hintShown = true;
+    const hint = h(`<div class="hint glass" aria-hidden="true">${icon('i-drag')}<div><div class="h1">Drag to look around</div><div class="h2">Tap the circles on the floor to walk into the next room</div></div></div>`);
+    ui.appendChild(hint);
+    const off = () => { hint.classList.add('gone'); setTimeout(() => hint.remove(), 700); };
+    setTimeout(off, 5200); pano.on('interact', function once() { off(); });
+  }
+  let planEl = null;
+  if (tour.plan) {
+    planEl = h(`<section class="plan glass" hidden aria-label="Floor plan"><header><b>Floor plan</b><button class="mini" aria-label="Close floor plan">${icon('i-close')}</button></header><div class="pwrap"><img alt="Floor plan of the flat"></div></section>`);
+    planEl.querySelector('img').src = tour.plan.img;
+    const wrapEl = planEl.querySelector('.pwrap');
+    const cone = h(`<div class="cone"><svg viewBox="-60 -60 120 120"><path d="M0 0 L-28 -52 A60 60 0 0 1 28 -52 Z" fill="rgba(242,169,59,.38)" stroke="rgba(242,169,59,.9)" stroke-width="1.5"/></svg></div>`);
+    wrapEl.appendChild(cone);
+    tour.scenes.forEach(s => {
+      if (!s.pos) return;
+      const px = (s.pos[0] - tour.plan.x0) / (tour.plan.x1 - tour.plan.x0) * 100, pz = (s.pos[1] - tour.plan.z0) / (tour.plan.z1 - tour.plan.z0) * 100;
+      const d = h(`<button class="dot" type="button"></button>`); d.style.left = px + '%'; d.style.top = pz + '%'; d.dataset.id = s.id; d.setAttribute('aria-label', s.name);
+      d.onclick = () => { if (pano.scene && pano.scene.id !== s.id) pano.goTo(s.id, null); };
+      const l = h(`<span class="plabel"></span>`); l.textContent = s.name; l.style.left = px + '%'; l.style.top = pz + '%';
+      wrapEl.appendChild(d); wrapEl.appendChild(l);
+    });
+    planEl.querySelector('header .mini').onclick = () => togglePlan(false);
+    ui.appendChild(planEl);
+  }
+  const cone_ = planEl ? planEl.querySelector('.cone') : null;
+  const updatePlanCone = () => {
+    if (!planEl || planEl.hidden || !pano.scene) return;
+    const s = tour.scenes.find(x => x.id === pano.scene.id); if (!s || !s.pos) return;
+    const px = (s.pos[0] - tour.plan.x0) / (tour.plan.x1 - tour.plan.x0) * 100, pz = (s.pos[1] - tour.plan.z0) / (tour.plan.z1 - tour.plan.z0) * 100;
+    cone_.style.left = px + '%'; cone_.style.top = pz + '%';
+    cone_.querySelector('svg').style.transform = `rotate(${pano.dYaw.toFixed(1)}deg)`;
+    planEl.querySelectorAll('.dot').forEach(d => d.setAttribute('aria-current', String(d.dataset.id === s.id)));
+  };
+  const togglePlan = (on) => {
+    state.showPlan = on == null ? !state.showPlan : on;
+    if (planEl) planEl.hidden = !state.showPlan;
+    const b = $('#tPlan'); if (b) b.setAttribute('aria-pressed', String(state.showPlan));
+    updatePlanCone();
+  };
+  if (planEl && state.showPlan) togglePlan(true);
+  const update = (s) => {
+    if (!s) return;
+    pill.querySelector('b').textContent = s.name;
+    pill.querySelector('.mono').textContent = s.dims || '';
+    pill.querySelector('.mono').hidden = !s.dims;
+    track.querySelectorAll('.chip').forEach(c => { const on = c.dataset.id === s.id; c.setAttribute('aria-current', String(on)); if (on) c.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); });
+    updatePlanCone();
+  };
+  tourHooks = { update, updatePlanCone };
+  const tb = $('#tBack'); if (tb) tb.onclick = opts.onBack || (() => goHome());
+  const tp = $('#tPlan'); if (tp) tp.onclick = () => togglePlan();
+  $('#tRot').onclick = () => { pano.autoRotate = !pano.autoRotate; $('#tRot').setAttribute('aria-pressed', String(pano.autoRotate)); if (pano.autoRotate) pano.lastInteract = performance.now() - 3000; };
+  $('#tFull').onclick = async () => {
+    try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen(); }
+    catch (e) { toast('Full screen is not available here.'); }
+  };
+  $('#tHelp').onclick = () => openHelp();
+  if (pano.scene) update(pano.scene);
+}
+let tourHooks = null;
+pano.on('scene', s => { if (tourHooks) tourHooks.update(s); });
+pano.on('view', () => { if (tourHooks && state.showPlan) tourHooks.updatePlanCone(); });
+pano.on('hotspot', ({ hotspot, el, x, y }) => {
+  if (state.view === 'build' && builder) return builder.onHotspot(hotspot, el, x, y);
+  pano.goTo(hotspot.to, hotspot);
+});
+{
+  const boot = document.getElementById('boot');
+  const done = () => { if (boot && !boot.classList.contains('gone')) { boot.classList.add('gone'); setTimeout(() => boot.remove(), 600); } };
+  pano.on('lowres', done); pano.on('loaded', done);
+  setTimeout(done, 15000);
+  if (window.EXPORT_TOUR === undefined && (location.hash || '').slice(1) === 'create') done();
+}
+pano.on('error', e => { console.error(e); toast(e && e.message ? e.message : 'Something went wrong while loading this room.'); });
+
+/* ------------------------------------------------------------------ HOME */
+function goHome() {
+  state.view = 'home'; location.hash = '';
+  if (builder) builder.close();
+  const demo = { id: 'demo', title: DEMO.title, subtitle: DEMO.subtitle, plan: DEMO.plan, scenes: demoTourScenes() };
+  if (!pano.tour || pano.tour.id !== 'demo') { pano.setTour(demo); pano.show(DEMO.start, {}); }
+  state.tour = pano.tour;
+  pano.editMode = false; pano.pickMode = false; pano.autoRotate = true; pano.lastInteract = performance.now() - 2500; pano.noPreload = true;
+  tourHooks = null;
+  ui.innerHTML = '';
+  const card = h(`<section class="welcome" aria-labelledby="wTitle">
+      <div class="eyebrow"><i></i>Live demo · drag the view behind this card</div>
+      <h1 id="wTitle">Ghar baithe, poora ghar ghoomo.</h1>
+      <p>Upload one 360° photo of each room, link the rooms, and your buyer can walk through the whole property from their phone.</p>
+      <div class="row">
+        <button class="btn primary" id="hStart">${icon('i-play')}Start the demo tour</button>
+        <button class="btn" id="hCreate">${icon('i-upload')}Make a tour of your property</button>
+      </div>
+      <div class="meta"><span>${icon('i-cube')}5 rooms · 1BHK sample flat</span><span>${icon('i-phone')}Works on phone and desktop</span></div>
+    </section>`);
+  ui.appendChild(card);
+  const brand = h(`<div class="brandmark glass"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" fill="none" stroke="#f2a93b" stroke-width="2.5"/><path d="M9 18l7-6 7 6v6H9z" fill="#f2a93b"/><path d="M5 16c3-5 7-7 11-7s8 2 11 7" fill="none" stroke="#f3efe8" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="2 3"/></svg><b>GHOOMO 360</b></div>`);
+  ui.appendChild(brand);
+  $('#hStart').onclick = () => startDemoTour();
+  $('#hCreate').onclick = () => openBuilder();
+}
+function startDemoTour() {
+  state.view = 'tour'; location.hash = 'demo';
+  if (!pano.tour || pano.tour.id !== 'demo') { const demo = { id: 'demo', title: DEMO.title, subtitle: DEMO.subtitle, plan: DEMO.plan, scenes: demoTourScenes() }; pano.setTour(demo); pano.show(DEMO.start, {}); }
+  pano.autoRotate = false; pano.noPreload = false; pano.interact();
+  renderTourUI(pano.tour);
+  if (pano.scene) pano._preloadNeighbors();
+}
+
+/* ------------------------------------------------------------------ HELP SHEET */
+function openHelp() {
+  const sc = h(`<div class="scrim" role="dialog" aria-modal="true" aria-labelledby="helpT"><div class="sheet">
+    <h2 id="helpT">How to make a 360° tour that looks right</h2>
+    <p class="sub">The viewer can only show what the camera captured. A full walk-through needs one 360° photo per room, taken from the middle of the room.</p>
+    <div class="grid3">
+      <div class="card"><div class="k">Best</div><b>360° camera</b><p>Insta360, Ricoh Theta or similar. One click captures the whole room with no stitching errors. Place it at chest height on a tripod or monopod.</p><span class="tag good">Perfect result</span></div>
+      <div class="card"><div class="k">For new projects</div><b>3D renders from the architect</b><p>Lumion, D5, Enscape, V-Ray and most 3D tools can export a 360° panorama (2:1 image). Upload it directly.</p><span class="tag good">Perfect result</span></div>
+      <div class="card"><div class="k">Free</div><b>Phone 360 / panorama app</b><p>Works, but phone stitching can leave seams on straight lines. Hold the phone at one spot and rotate slowly.</p><span class="tag mid">Good, check for seams</span></div>
+      <div class="card"><div class="k">Not enough</div><b>Normal photos</b><p>A normal photo only covers what was in the frame. It is shown as a flat view with a little movement, not a full room.</p><span class="tag no">Not a 360° view</span></div>
+    </div>
+    <h3>Shooting checklist</h3>
+    <ul>
+      <li>Turn on all lights, open curtains, keep doors between rooms open.</li>
+      <li>Put the camera in the middle of each room at about 1.5 m height.</li>
+      <li>Shoot from the doorway side too, so arrows between rooms make sense.</li>
+      <li>Upload the 2:1 photo exactly as exported (for example 5760 × 2880 or 8192 × 4096).</li>
+    </ul>
+    <div class="foot"><button class="btn primary" id="helpOk">Got it</button></div>
+  </div></div>`);
+  document.body.appendChild(sc);
+  const close = () => sc.remove();
+  sc.addEventListener('click', e => { if (e.target === sc) close(); });
+  sc.querySelector('#helpOk').onclick = close;
+  document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
+  sc.querySelector('#helpOk').focus();
+}
+
+/* ------------------------------------------------------------------ BUILDER */
+let builder = null;
+function openBuilder() {
+  state.view = 'build'; location.hash = 'create';
+  if (!builder) builder = new Builder();
+  builder.open();
+}
+
+const ROOM_NAMES = ['Living Room', 'Dining', 'Kitchen', 'Master Bedroom', 'Bedroom 2', 'Bathroom', 'Balcony', 'Entrance', 'Study', 'Terrace'];
+function guessName(fileName, i) {
+  const base = fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const low = base.toLowerCase();
+  for (const n of ROOM_NAMES) if (low.includes(n.toLowerCase().split(' ')[0])) return n;
+  if (/^(img|dsc|pxl|vid|photo|pano|r00|insp|insta)/i.test(base) || /^\d/.test(base) || base.length > 28 || !base) return 'Room ' + (i + 1);
+  return base.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+class Builder {
+  constructor() {
+    this.tour = { id: 'mine', title: 'My property', subtitle: '', scenes: [] };
+    this.sel = null; this.mode = 'idle'; this.pending = null; this.counter = 0;
+    this.db = null; this.restored = false;
+  }
+  async open() {
+    document.body.classList.add('building'); pano.noPreload = false;
+    pano.setTour({ id: 'mine', title: this.tour.title, scenes: [] });
+    pano.autoRotate = false; pano.editMode = true; pano.pickMode = false;
+    tourHooks = null;
+    this.render();
+    if (!this.restored) { this.restored = true; await this.restoreDraft(); }
+    this.syncPano(true);
+  }
+  close() { document.body.classList.remove('building'); pano.editMode = false; pano.pickMode = false; this.mode = 'idle'; this.closePop(); this.hideBanner(); }
+  syncPano(reshow) {
+    const prevSel = this.sel;
+    const scenes = this.tour.scenes.filter(s => s.ready);
+    // keep pano scenes in sync without dropping loaded textures
+    const keep = new Map(); for (const s of pano.scenes.values()) keep.set(s.id, s);
+    pano.tour = { id: 'mine', scenes };
+    const next = new Map();
+    scenes.forEach(s => {
+      const old = keep.get(s.id);
+      if (old) { Object.assign(old, { name: s.name, hotspots: s.hotspots, startYaw: s.startYaw, startPitch: s.startPitch, proj: s.proj }); next.set(s.id, old); }
+      else next.set(s.id, { id: s.id, name: s.name, src: { blob: s.file }, proj: s.proj, hotspots: s.hotspots, startYaw: s.startYaw, startPitch: s.startPitch, cube: null, cubeLo: null, hiReady: false, loadingLo: null, loadingHi: null, epoch: 0 });
+    });
+    for (const [id, s] of keep) if (!next.has(id)) pano.invalidate(s);
+    pano.scenes = next; pano.cubeLRU = pano.cubeLRU.filter(s => next.has(s.id));
+    if (!prevSel && scenes.length) this.sel = scenes[0].id;
+    if (this.sel && !next.has(this.sel)) this.sel = scenes.length ? scenes[0].id : null;
+    if (!this.sel) { pano.scene = null; pano._clearHotspots(); pano.dirty = true; }
+    else if (reshow || !pano.scene || pano.scene.id !== this.sel) pano.show(this.sel, {});
+    else pano.refreshHotspots();
+    this.renderList(); this.renderTools();
+  }
+  render() {
+    ui.innerHTML = '';
+    const panel = h(`<aside class="builder" aria-label="Tour builder">
+      <div class="bhead">
+        <button class="ibtn" id="bBack" aria-label="Back to start">${icon('i-back')}</button>
+        <div class="tt"><input id="bTitle" aria-label="Property name" maxlength="60"><div class="t2" id="bSub">Tour builder</div></div>
+        <button class="ibtn" id="bHelp" aria-label="Photo tips" title="Photo tips">${icon('i-help')}</button>
+      </div>
+      <div class="bbody">
+        <label class="drop" id="bDrop" for="bFile">
+          ${icon('i-upload')}
+          <b>Add 360° photos, one per room</b>
+          <small>2:1 panorama JPG or PNG from a 360° camera, phone 360 app or 3D render. Phone panoramas also work.</small>
+          <div class="row"><span class="btn small primary">Choose photos</span><button class="btn small" type="button" id="bSample">Use sample photos</button></div>
+          <input type="file" id="bFile" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        </label>
+        <div class="steps" aria-hidden="true"><span id="st1"><i>1</i>Add photos</span><span id="st2"><i>2</i>Link rooms</span><span id="st3"><i>3</i>Preview</span></div>
+        <div class="rlist" id="bList"></div>
+        <div id="bNotes"></div>
+      </div>
+      <div class="bfoot"><button class="btn primary" id="bPreview" disabled>${icon('i-eye')}Preview tour</button><button class="btn" id="bExport" disabled>${icon('i-download')}Download tour</button></div>
+      <div class="draftline" id="bDraft"></div>
+    </aside>`);
+    ui.appendChild(panel);
+    const tools = h(`<div class="edittools" id="bTools"></div>`); ui.appendChild(tools);
+    $('#bTitle').value = this.tour.title;
+    $('#bTitle').addEventListener('input', e => { this.tour.title = e.target.value || 'My property'; this.saveDraft(); });
+    $('#bBack').onclick = () => goHome();
+    $('#bHelp').onclick = () => openHelp();
+    $('#bPreview').onclick = () => this.preview();
+    $('#bExport').onclick = () => this.exportTour();
+    const input = $('#bFile');
+    input.addEventListener('change', () => { this.addFiles([...input.files]); input.value = ''; });
+    const drop = $('#bDrop');
+    ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', e => { const fs = [...(e.dataTransfer && e.dataTransfer.files || [])].filter(f => /^image\//.test(f.type)); if (fs.length) this.addFiles(fs); });
+    $('#bSample').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); this.loadSamples(); });
+    this.renderList(); this.renderTools();
+  }
+  steps() {
+    const n = this.tour.scenes.filter(s => s.ready).length, links = this.tour.scenes.reduce((a, s) => a + s.hotspots.length, 0);
+    const s1 = $('#st1'), s2 = $('#st2'), s3 = $('#st3'); if (!s1) return;
+    s1.classList.toggle('on', n === 0); s2.classList.toggle('on', n > 0 && (n < 2 || links === 0)); s3.classList.toggle('on', n > 1 && links > 0);
+    const pv = $('#bPreview'); if (pv) pv.disabled = n === 0;
+    const ex = $('#bExport'); if (ex) ex.disabled = n === 0 || this.exporting;
+  }
+  renderList() {
+    const list = $('#bList'); if (!list) return;
+    list.innerHTML = '';
+    this.tour.scenes.forEach((s, i) => {
+      const card = h(`<div class="rcard${s.ready ? '' : ' proc'}" role="button" tabindex="0">
+        <img alt="">
+        <div class="rmeta"><input aria-label="Room name" maxlength="40"><div class="badges"></div>${s.ready ? '' : '<div class="prog"><i></i></div>'}</div>
+        <div class="acts"><button class="mini" data-a="up" aria-label="Move up">${icon('i-up')}</button><button class="mini" data-a="del" aria-label="Remove room">${icon('i-trash')}</button></div>
+      </div>`);
+      if (s.thumb) card.querySelector('img').src = s.thumb;
+      const inp = card.querySelector('input'); inp.value = s.name;
+      inp.addEventListener('click', e => e.stopPropagation());
+      inp.addEventListener('input', () => { s.name = inp.value || 'Room'; this.syncNames(); this.saveDraft(); });
+      const badges = card.querySelector('.badges');
+      if (i === 0) badges.appendChild(h(`<span class="badge start">Start</span>`));
+      if (s.ready) {
+        badges.appendChild(h(`<span class="badge ${s.kind === 'sphere' ? 'ok' : 'mid'}">${s.kind === 'sphere' ? '360° photo' : s.kind === 'pano' ? 'Panorama ' + Math.round(s.coverage) + '°' : 'Normal photo'}</span>`));
+        badges.appendChild(h(`<span class="badge">${s.hotspots.length} arrow${s.hotspots.length === 1 ? '' : 's'}</span>`));
+      } else if (s.error) badges.appendChild(h(`<span class="badge mid">Could not read</span>`));
+      else badges.appendChild(h(`<span class="badge">Processing…</span>`));
+      card.setAttribute('aria-current', String(s.id === this.sel));
+      card.addEventListener('click', () => { if (s.ready) this.select(s.id); });
+      card.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === card && s.ready) { e.preventDefault(); this.select(s.id); } });
+      card.querySelector('[data-a="del"]').addEventListener('click', e => { e.stopPropagation(); this.removeRoom(s.id); });
+      card.querySelector('[data-a="up"]').addEventListener('click', e => { e.stopPropagation(); if (i > 0) { const a = this.tour.scenes; [a[i - 1], a[i]] = [a[i], a[i - 1]]; this.renderList(); this.saveDraft(); } });
+      if (i === 0) card.querySelector('[data-a="up"]').disabled = true;
+      list.appendChild(card);
+    });
+    this.renderNotes(); this.steps();
+    const dz = $('#bDrop'); if (dz) { dz.classList.toggle('compact', this.tour.scenes.length > 0); dz.querySelector('b').textContent = this.tour.scenes.length ? 'Add more rooms' : 'Add 360° photos, one per room'; const sb = $('#bSample'); if (sb) sb.hidden = this.tour.scenes.length > 0; }
+    const empty = $('#bEmpty');
+    if (!this.tour.scenes.length) { if (!empty) ui.appendChild(h(`<div class="empty" id="bEmpty">${icon('i-cube')}<b>Your rooms will appear here</b><span>Add a 360° photo of each room to start. Or try the sample photos first.</span></div>`)); }
+    else if (empty) empty.remove();
+  }
+  renderNotes() {
+    const box = $('#bNotes'); if (!box) return; box.innerHTML = '';
+    const ready = this.tour.scenes.filter(s => s.ready);
+    const flat = ready.filter(s => s.kind === 'photo');
+    const errs = this.tour.scenes.filter(s => s.error);
+    if (flat.length) box.appendChild(h(`<div class="note"><b>${flat.length} normal photo${flat.length > 1 ? 's' : ''}.</b> A normal photo only shows what was in the frame, so buyers cannot turn around in that room. For a full walk-through, replace it with a 360° photo of the room.</div>`));
+    errs.forEach(s => { const n = h(`<div class="note err"></div>`); n.textContent = `${s.fileName}: ${s.error}`; box.appendChild(n); });
+    if (ready.length >= 2 && !ready.some(s => s.hotspots.length)) box.appendChild(h(`<div class="note"><b>Next: link the rooms.</b> Select a room, press <b>Add arrow</b>, then tap the doorway that leads to the next room.</div>`));
+  }
+  renderTools() {
+    const t = $('#bTools'); if (!t) return; t.innerHTML = '';
+    const s = this.tour.scenes.find(x => x.id === this.sel && x.ready);
+    if (!s) return;
+    const others = this.tour.scenes.filter(x => x.ready && x.id !== s.id);
+    t.appendChild(h(`<div class="roomname glass"></div>`)).textContent = s.name;
+    const add = h(`<button class="btn small primary" id="tAdd">${icon('i-arrow')}Add arrow</button>`);
+    add.disabled = !others.length; add.title = others.length ? 'Tap a doorway in the view to add an arrow' : 'Add a second room first';
+    add.onclick = () => this.startPlace();
+    t.appendChild(add);
+    const st = h(`<button class="btn small" id="tStart">${icon('i-target')}Set as starting view</button>`);
+    st.onclick = () => { s.startYaw = Math.round(pano.yaw * 10) / 10; s.startPitch = Math.round(pano.pitch * 10) / 10; this.syncPano(false); this.saveDraft(); toast(`Starting view saved for ${s.name}.`); };
+    t.appendChild(st);
+    if (s.kind === 'pano' && !s.gpano) {
+      const sl = h(`<div class="slider glass"><div class="lab"><span>Panorama width</span><span class="mono" id="covV"></span></div><input type="range" min="90" max="360" step="5" id="covR" aria-label="Panorama width in degrees"></div>`);
+      t.appendChild(sl);
+      const r = sl.querySelector('#covR'), v = sl.querySelector('#covV');
+      r.value = s.coverage; v.textContent = s.coverage + '°';
+      let tm = null;
+      r.addEventListener('input', () => { v.textContent = r.value + '°'; clearTimeout(tm); tm = setTimeout(() => { this.setCoverage(s, +r.value); }, 220); });
+    }
+  }
+  setCoverage(s, deg) {
+    s.coverage = deg; s.proj = cylProj(s.w, s.h, deg);
+    const ps = pano.scenes.get(s.id); if (ps) { pano.invalidate(ps); ps.proj = s.proj; }
+    pano.show(s.id, { yaw: pano.yaw, pitch: pano.pitch });
+    this.saveDraft();
+  }
+  syncNames() {
+    for (const s of this.tour.scenes) { const p = pano.scenes.get(s.id); if (p) p.name = s.name; }
+    pano.refreshHotspots();
+    const rn = $('#bTools .roomname'); const cur = this.tour.scenes.find(x => x.id === this.sel); if (rn && cur) rn.textContent = cur.name;
+  }
+  select(id) {
+    if (this.mode !== 'idle') this.cancelPlace();
+    this.sel = id; pano.show(id, {}); this.renderList(); this.renderTools();
+  }
+  async addFiles(files) {
+    const startIdx = this.tour.scenes.length;
+    const items = files.map((f, k) => {
+      const s = { id: 'r' + Date.now().toString(36) + (this.counter++), name: guessName(f.name, startIdx + k), fileName: f.name, file: f, ready: false, hotspots: [], startYaw: 0, startPitch: 0 };
+      this.tour.scenes.push(s); return s;
+    });
+    this.renderList();
+    for (const s of items) {
+      try { await this.process(s); }
+      catch (e) { console.error(e); s.error = (e && e.message) || 'This file could not be opened.'; }
+      this.renderList();
+      if (s.ready) { if (!this.sel) this.sel = s.id; this.syncPano(this.sel === s.id); }
+    }
+    this.saveDraft();
+  }
+  async process(s) {
+    const meta = await readMeta(s.file);
+    const d = await decodeBlob(s.file, 1600);
+    const W = d.srcW || d.w, H = d.srcH || d.h;
+    s.w = W; s.h = H;
+    const ar = W / H;
+    if (meta.gpano && (meta.gpano.cw < meta.gpano.fw || meta.gpano.ch < meta.gpano.fh)) {
+      const g = meta.gpano;
+      s.kind = g.cw >= g.fw * 0.98 ? 'sphere' : 'pano'; s.gpano = true;
+      s.proj = { type: 0, lonMin: (g.cl / g.fw - 0.5) * 2 * Math.PI, lonMax: ((g.cl + g.cw) / g.fw - 0.5) * 2 * Math.PI, latMax: (0.5 - g.ct / g.fh) * Math.PI, latMin: (0.5 - (g.ct + g.ch) / g.fh) * Math.PI };
+      s.coverage = Math.round(g.cw / g.fw * 360);
+    } else if (Math.abs(ar - 2) < 0.06) {
+      s.kind = 'sphere'; s.proj = { type: 0, lonMin: -Math.PI, lonMax: Math.PI, latMin: -Math.PI / 2, latMax: Math.PI / 2 }; s.coverage = 360;
+    } else if (ar > 2.06) {
+      s.kind = 'pano';
+      const cov = clamp(Math.round(ar * 58 / 5) * 5, 120, 360);
+      s.coverage = cov; s.proj = cylProj(W, H, cov);
+    } else {
+      s.kind = 'photo';
+      const f35 = meta.f35 && meta.f35 > 8 && meta.f35 < 400 ? meta.f35 : 26;
+      const long = Math.max(W, H), longFov = 2 * Math.atan(36 / (2 * f35));
+      const tLong = Math.tan(longFov / 2);
+      const tanH = W >= H ? tLong : tLong * W / H, tanV = W >= H ? tLong * H / W : tLong;
+      s.proj = { type: 2, tanH, tanV }; s.coverage = Math.round(2 * Math.atan(tanH) / DEG);
+    }
+    // thumbnail (2:1 crop from the middle band)
+    const c = document.createElement('canvas'); c.width = 320; c.height = 160;
+    const g = c.getContext('2d'); g.fillStyle = '#1c2027'; g.fillRect(0, 0, 320, 160);
+    const sw = d.w, sh = d.h; let cw = sw, ch = sw / 2; if (ch > sh) { ch = sh; cw = sh * 2; }
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(d.img, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, 320, 160);
+    if (d.img.close) d.img.close();
+    s.thumb = c.toDataURL('image/jpeg', 0.8);
+    s.ready = true;
+  }
+  removeRoom(id) {
+    const s = this.tour.scenes.find(x => x.id === id); if (!s) return;
+    this.tour.scenes = this.tour.scenes.filter(x => x.id !== id);
+    this.tour.scenes.forEach(x => { x.hotspots = x.hotspots.filter(hh => hh.to !== id); });
+    if (this.sel === id) this.sel = null;
+    this.syncPano(true); this.saveDraft();
+    toast(`${s.name} removed.`);
+  }
+  async loadSamples() {
+    const files = [];
+    toast('Loading the 5 sample 360° photos…', 2000);
+    try {
+      for (const sc of DEMO.scenes) {
+        const r = await fetch(`${DEMO.base}${sc.id}_eq.jpg`); if (!r.ok) throw new Error('Sample photos could not be loaded.');
+        const b = await r.blob(); files.push(new File([b], sc.name + '.jpg', { type: 'image/jpeg' }));
+      }
+    } catch (e) { toast(e.message || 'Sample photos could not be loaded.'); return; }
+    await this.addFiles(files);
+    if (!this.tour.title || this.tour.title === 'My property') { this.tour.title = 'Sample flat'; const t = $('#bTitle'); if (t) t.value = this.tour.title; }
+    this.saveDraft();
+  }
+  /* ---- arrow placement ---- */
+  startPlace(returnFor) {
+    this.closePop();
+    this.mode = returnFor ? 'return' : 'place'; this.pending = returnFor || null;
+    pano.pickMode = true; pano.canvas.classList.add('picking');
+    const cur = this.tour.scenes.find(x => x.id === this.sel);
+    const msg = returnFor ? `Now tap the doorway in <b>${esc(cur.name)}</b> that leads back to <b>${esc(this.nameOf(returnFor.to))}</b>.` : `Tap the doorway or floor spot that leads to the next room.`;
+    this.showBanner(msg);
+  }
+  cancelPlace() { this.mode = 'idle'; this.pending = null; pano.pickMode = false; pano.canvas.classList.remove('picking'); this.hideBanner(); }
+  showBanner(html) {
+    this.hideBanner();
+    const b = h(`<div class="banner glass" id="bBanner" role="status"><span>${html}</span><button class="btn small" id="bCancel">Cancel</button></div>`);
+    ui.appendChild(b); b.querySelector('#bCancel').onclick = () => this.cancelPlace();
+  }
+  hideBanner() { const b = $('#bBanner'); if (b) b.remove(); }
+  nameOf(id) { const s = this.tour.scenes.find(x => x.id === id); return s ? s.name : 'room'; }
+  onPick({ x, y, yaw, pitch }) {
+    const cur = this.tour.scenes.find(s => s.id === this.sel); if (!cur) return;
+    if (this.mode === 'return' && this.pending) {
+      const pend = this.pending;
+      const hs = { id: 'h' + Date.now().toString(36), yaw: round1(yaw), pitch: round1(pitch), to: pend.to };
+      cur.hotspots.push(hs);
+      const back = this.tour.scenes.find(s => s.id === pend.to);
+      const fwd = back && back.hotspots.find(q => q.id === pend.fwdId);
+      // walking through a door, you arrive facing away from the door you came in by
+      if (fwd) { fwd.arriveYaw = round1(wrap(hs.yaw + 180)); hs.arriveYaw = round1(wrap(fwd.yaw + 180)); }
+      this.cancelPlace(); this.syncPano(false); this.saveDraft(); this.renderList();
+      toast(`Two-way link ready between ${cur.name} and ${this.nameOf(pend.to)}.`);
+      return;
+    }
+    if (this.mode !== 'place') return;
+    const others = this.tour.scenes.filter(s => s.ready && s.id !== cur.id);
+    this.closePop();
+    const pop = h(`<div class="pop" role="dialog" aria-label="Arrow leads to"><div class="ph">This arrow leads to…</div><div class="opts"></div><div class="sep"></div><label><input type="checkbox" id="pRet" checked> Also add the way back</label><div class="sep"></div><button class="opt" id="pCancel">Cancel</button></div>`);
+    const opts = pop.querySelector('.opts');
+    others.forEach(o => {
+      const b = h(`<button class="opt" type="button"><img alt=""><span></span></button>`);
+      b.querySelector('img').src = o.thumb; b.querySelector('span').textContent = o.name;
+      b.onclick = () => {
+        const ret = pop.querySelector('#pRet').checked;
+        const hs = { id: 'h' + Date.now().toString(36), yaw: round1(yaw), pitch: round1(pitch), to: o.id, arriveYaw: round1(yaw) };
+        cur.hotspots.push(hs);
+        this.closePop(); this.cancelPlace(); this.syncPano(false); this.saveDraft(); this.renderList();
+        if (ret) {
+          const fromId = cur.id;
+          this.sel = o.id; pano.show(o.id, {}); this.renderList(); this.renderTools();
+          this.startPlace({ to: fromId, fwdId: hs.id });
+        } else toast(`Arrow to ${o.name} added.`);
+      };
+      opts.appendChild(b);
+    });
+    pop.querySelector('#pCancel').onclick = () => { this.closePop(); };
+    this.placePop(pop, x, y);
+  }
+  placePop(pop, x, y) {
+    document.body.appendChild(pop); this.pop = pop;
+    const r = pop.getBoundingClientRect(); const W = innerWidth, H = innerHeight;
+    pop.style.left = clamp(x + 12, 12, W - r.width - 12) + 'px'; pop.style.top = clamp(y - 20, 12, H - r.height - 12) + 'px';
+    const first = pop.querySelector('button'); if (first) first.focus();
+    setTimeout(() => { this._outside = e => { if (this.pop && !this.pop.contains(e.target)) this.closePop(); }; document.addEventListener('pointerdown', this._outside, true); }, 0);
+  }
+  closePop() { if (this.pop) { this.pop.remove(); this.pop = null; } if (this._outside) { document.removeEventListener('pointerdown', this._outside, true); this._outside = null; } }
+  onHotspot(hs, el, x, y) {
+    if (this.mode !== 'idle') return;
+    const cur = this.tour.scenes.find(s => s.id === this.sel); if (!cur) return;
+    const real = cur.hotspots.find(q => q.id === hs.id) || hs;
+    this.closePop();
+    const pop = h(`<div class="pop" role="dialog" aria-label="Arrow"><div class="ph"></div><button class="opt" id="hGo">${icon('i-arrow')}<span>Walk to this room</span></button><button class="opt" id="hDel">${icon('i-trash')}<span>Delete arrow</span></button></div>`);
+    pop.querySelector('.ph').textContent = 'Arrow to ' + this.nameOf(real.to);
+    pop.querySelector('#hGo').onclick = () => { this.closePop(); this.sel = real.to; pano.goTo(real.to, hs).then(() => { this.renderList(); this.renderTools(); }); };
+    pop.querySelector('#hDel').onclick = () => { cur.hotspots = cur.hotspots.filter(q => q !== real); this.closePop(); this.syncPano(false); this.saveDraft(); this.renderList(); };
+    this.placePop(pop, x, y);
+  }
+  preview() {
+    const ready = this.tour.scenes.filter(s => s.ready); if (!ready.length) return;
+    this.cancelPlace(); this.closePop(); document.body.classList.remove('building');
+    const em = $('#bEmpty'); if (em) em.remove();
+    pano.editMode = false; pano.pickMode = false; pano.refreshHotspots();
+    state.view = 'tour';
+    const tour = { id: 'mine', title: this.tour.title || 'My property', subtitle: `${ready.length} room${ready.length > 1 ? 's' : ''} · preview`, scenes: ready.map(s => Object.assign(pano.scenes.get(s.id), { thumb: s.thumb })) };
+    renderTourUI(tour, { backLabel: 'Back to editing', onBack: () => { state.view = 'build'; document.body.classList.add('building'); pano.editMode = true; this.render(); this.syncPano(false); } });
+    const first = ready[0].id;
+    if (!pano.scene || pano.scene.id !== first) pano.show(first, {}); else tourHooks.update(pano.scene);
+    toast('Preview: this is what your buyer will see.');
+  }
+  /* ---- export the tour as one self-contained HTML file ---- */
+  async exportTour() {
+    const ready = this.tour.scenes.filter(s => s.ready); if (!ready.length || this.exporting) return;
+    this.exporting = true; this.steps();
+    const btn = $('#bExport'); const label = btn ? btn.innerHTML : '';
+    if (btn) btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px"></span>Packing…';
+    try {
+      const scenes = [];
+      for (const s of ready) {
+        const blob = await shrinkForExport(s.file);
+        scenes.push({ id: s.id, name: s.name, proj: s.proj, startYaw: s.startYaw, startPitch: s.startPitch, hotspots: s.hotspots, thumb: s.thumb, src: { url: await blobToDataURL(blob) } });
+      }
+      const title = (this.tour.title || 'My property').trim();
+      const data = { id: 'export', title, subtitle: `${scenes.length} room${scenes.length > 1 ? 's' : ''} · 360° tour`, scenes };
+      const html = buildExportHTML(data);
+      const name = title.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'property';
+      const res = await saveFile(`${name}-360-tour.html`, new Blob([html], { type: 'text/html' }));
+      if (res === 'saved') toast('Tour file saved. Open it in Chrome, or upload it to any website to share the link.', 4200);
+      else if (res === 'declined') toast('Download cancelled.');
+    } catch (e) {
+      console.error(e);
+      toast(e && e.code === 'unavailable' ? 'Downloads are not available in this view.' : 'The tour file could not be created. Try again with fewer or smaller photos.', 4200);
+    } finally {
+      this.exporting = false; if (btn) btn.innerHTML = label; this.steps();
+    }
+  }
+  /* ---- draft persistence (this browser only) ---- */
+  openDB() {
+    if (this.db !== null) return Promise.resolve(this.db);
+    return new Promise(res => {
+      try {
+        const rq = indexedDB.open('ghoomo360', 1);
+        rq.onupgradeneeded = () => rq.result.createObjectStore('draft');
+        rq.onsuccess = () => { this.db = rq.result; res(this.db); };
+        rq.onerror = () => { this.db = false; res(false); };
+      } catch (e) { this.db = false; res(false); }
+    });
+  }
+  saveDraft() {
+    clearTimeout(this._saveT);
+    this._saveT = setTimeout(async () => {
+      const db = await this.openDB(); if (!db) return;
+      try {
+        const data = { title: this.tour.title, scenes: this.tour.scenes.filter(s => s.ready).map(s => ({ id: s.id, name: s.name, fileName: s.fileName, file: s.file, kind: s.kind, proj: s.proj, coverage: s.coverage, w: s.w, h: s.h, gpano: !!s.gpano, thumb: s.thumb, hotspots: s.hotspots, startYaw: s.startYaw, startPitch: s.startPitch })) };
+        const tx = db.transaction('draft', 'readwrite'); tx.objectStore('draft').put(data, 'tour');
+        tx.oncomplete = () => { const d = $('#bDraft'); if (d) d.textContent = 'Draft saved in this browser only.'; };
+      } catch (e) { /* storage unavailable */ }
+    }, 700);
+  }
+  async restoreDraft() {
+    const db = await this.openDB(); if (!db) return;
+    const data = await new Promise(res => { try { const rq = db.transaction('draft').objectStore('draft').get('tour'); rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); } catch (e) { res(null); } });
+    if (!data || !data.scenes || !data.scenes.length || this.tour.scenes.length) return;
+    this.tour.title = data.title || 'My property';
+    this.tour.scenes = data.scenes.map(s => Object.assign({}, s, { ready: true }));
+    const t = $('#bTitle'); if (t) t.value = this.tour.title;
+    this.sel = null; this.renderList();
+    const d = $('#bDraft'); if (d) d.textContent = 'Restored your draft from this browser.';
+  }
+}
+const round1 = v => Math.round(v * 10) / 10;
+function cylProj(W, H, covDeg) {
+  const span = covDeg * DEG;
+  const tanV = (H / W) * span / 2;
+  return { type: 1, lonMin: -span / 2, lonMax: span / 2, tanV };
+}
+pano.on('pick', p => { if (builder && state.view === 'build') builder.onPick(p); });
+window.__ghoomo = { pano };
+
+async function shrinkForExport(file) {
+  const MAXW = 5760;
+  let w = 0;
+  try { const b = await createImageBitmap(file); w = b.width; if (b.close) b.close(); } catch (e) { w = 0; }
+  if (w && w <= MAXW && /jpe?g/i.test(file.type || '')) return file;
+  const d = await decodeBlob(file, MAXW);
+  const c = document.createElement('canvas'); c.width = d.w; c.height = d.h;
+  c.getContext('2d').drawImage(d.img, 0, 0, d.w, d.h); if (d.img.close) d.img.close();
+  return await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('encode')), 'image/jpeg', 0.88));
+}
+function blobToDataURL(blob) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+}
+function buildExportHTML(data) {
+  const css = document.getElementById('viewer-css').textContent + document.getElementById('app-css').textContent;
+  const engine = document.getElementById('engine').textContent;
+  const app = document.getElementById('app-script').textContent;
+  const icons = document.getElementById('tpl-icons').outerHTML;
+  const json = JSON.stringify(data).replace(/</g, '\\u003c');
+  const stage = '<div class="stage" id="stage"><canvas id="pano" tabindex="0" aria-label="360 degree view"></canvas><div class="hs-layer" id="hsLayer"></div><div class="fade" id="fade"></div></div><div id="ui"></div>';
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">' +
+    '<title>' + esc(data.title) + ' · 360° tour</title>' +
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:wght@400;500&display=swap">' +
+    '<style>' + css + '</style></head><body>' + stage + icons +
+    '<script>window.EXPORT_TOUR=' + json + ';<\/script>' +
+    '<script id="engine">' + engine + '<\/script>' +
+    '<script id="app-script">' + app + '<\/script></body></html>';
+}
+async function saveFile(filename, blob) {
+  if (window.claude && typeof window.claude.use === 'function') {
+    let dl = null;
+    try { dl = await window.claude.use('downloads'); } catch (e) { dl = null; }
+    if (dl) {
+      try { await dl.save({ filename, data: blob }); return 'saved'; }
+      catch (e) { if (e && e.code === 'declined') return 'declined'; throw e; }
+    }
+    const err = new Error('unavailable'); err.code = 'unavailable'; throw err;
+  }
+  let framed = false; try { framed = window.top !== window; } catch (e) { framed = true; }
+  if (framed) { const err = new Error('unavailable'); err.code = 'unavailable'; throw err; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  return 'saved';
+}
+
+/* ------------------------------------------------------------------ routing */
+function route() {
+  if (window.EXPORT_TOUR) {
+    const t = window.EXPORT_TOUR; state.view = 'tour';
+    pano.setTour(t); pano.show(t.scenes[0].id, {}); pano.autoRotate = false;
+    renderTourUI(t, { noBack: true }); return;
+  }
+  const hsh = (location.hash || '').slice(1);
+  if (hsh === 'create') openBuilder();
+  else if (hsh === 'demo') { goHome(); startDemoTour(); }
+  else goHome();
+}
+route();
+})();
+</script>
+</body>
+</html>
