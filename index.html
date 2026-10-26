@@ -234,6 +234,16 @@ button{font:inherit;color:inherit}
 .note{margin-top:12px;padding:10px 12px;border-radius:10px;border:1px solid rgba(242,201,76,.35);background:rgba(242,201,76,.07);font-size:12.5px;color:#e9dfc0}
 .note.err{border-color:rgba(240,138,126,.45);background:rgba(240,138,126,.08);color:#f3d0ca}
 .note b{color:var(--text)}
+.note.ok{border-color:rgba(127,211,160,.4);background:rgba(127,211,160,.07);color:#cfe9d9}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font-weight:600;text-decoration:underline;cursor:pointer;font-size:inherit}
+.namechips{display:flex;flex-wrap:wrap;gap:6px;padding:2px 2px 6px}
+.nchip{font-size:12px;padding:5px 10px;border-radius:999px;border:1px solid var(--line-2);background:rgba(255,255,255,.04);cursor:pointer}
+.nchip:hover{background:rgba(255,255,255,.1)}
+.nchip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.lens{display:flex;align-items:center;gap:6px;padding:6px 6px 6px 12px;border-radius:999px;font-size:12.5px}
+.lens span{color:var(--muted);margin-right:2px}
+.lens button{border:1px solid var(--line-2);background:transparent;border-radius:999px;padding:5px 11px;cursor:pointer;font-size:12.5px}
+.lens button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
 .bfoot{border-top:1px solid var(--line);padding:12px 14px 2px;display:flex;gap:8px;flex-wrap:wrap}
 .bfoot .btn{flex:1}
 .draftline{font-size:11.5px;color:var(--faint);padding:6px 14px 0}
@@ -1383,7 +1393,9 @@ function openHelp() {
       <li>Turn on all lights, open curtains, keep doors between rooms open.</li>
       <li>Put the camera in the middle of each room at about 1.5 m height.</li>
       <li>Shoot from the doorway side too, so arrows between rooms make sense.</li>
+      <li>Shoot the rooms in the order a visitor walks (entrance, living, kitchen, bedrooms…). Upload them in that order: rooms are connected automatically.</li>
       <li>Upload the 2:1 photo exactly as exported (for example 5760 × 2880 or 8192 × 4096).</li>
+      <li><b>Do not send photos over WhatsApp</b> as normal photos: WhatsApp shrinks them to about 1280 px and they look blurry. Send as a Document, or use Google Drive or a USB cable.</li>
     </ul>
     <div class="foot"><button class="btn primary" id="helpOk">Got it</button></div>
   </div></div>`);
@@ -1404,6 +1416,39 @@ function openBuilder() {
 }
 
 const ROOM_NAMES = ['Living Room', 'Dining', 'Kitchen', 'Master Bedroom', 'Bedroom 2', 'Bathroom', 'Balcony', 'Entrance', 'Study', 'Terrace'];
+// one-tap names shown under the selected room (no typing needed)
+const ROOM_CHIPS = ['Entrance', 'Living Room', 'Drawing Room', 'Dining', 'Kitchen', 'Master Bedroom', 'Bedroom 2', 'Bedroom 3', 'Bathroom', 'Pooja Room', 'Balcony', 'Lobby', 'Staircase', 'Terrace', 'Parking', 'Store'];
+const LENS_F35 = { '1x': 26, '0.5x': 13 };
+function photoProj(W, H, f35) {
+  const longFov = 2 * Math.atan(36 / (2 * f35)), tLong = Math.tan(longFov / 2);
+  const tanH = W >= H ? tLong : tLong * W / H, tanV = W >= H ? tLong * H / W : tLong;
+  return { type: 2, tanH, tanV };
+}
+/* Arrows between rooms in the order they are listed, so nobody has to link rooms by hand.
+   Hand-placed arrows always win: an automatic arrow is only made when no hand-placed one exists. */
+function autoLink(scenes) {
+  const ready = scenes.filter(s => s.ready);
+  ready.forEach(s => { s.hotspots = s.hotspots.filter(h => !h.auto); });
+  const place = (s, dir) => {          // dir: +1 forward (ahead), -1 back (behind / to the left)
+    const p = s.proj || {};
+    if (p.type === 2) {                // normal photo: both arrows must sit inside the frame
+      const hh = Math.atan(p.tanH) / DEG, vv = Math.atan(p.tanV) / DEG;
+      return { yaw: round1((s.startYaw || 0) + (dir > 0 ? hh * 0.12 : -hh * 0.55)), pitch: round1(-Math.max(9, vv * 0.4)) };
+    }
+    const full = s.coverage >= 355;
+    if (full) return { yaw: round1(wrap((s.startYaw || 0) + (dir > 0 ? 0 : 180))), pitch: -30 };
+    const half = (s.coverage || 180) / 2;
+    return { yaw: round1((s.startYaw || 0) + (dir > 0 ? half * 0.1 : -half * 0.6)), pitch: -26 };
+  };
+  ready.forEach((s, i) => {
+    const link = (t, dir) => {
+      if (!t || s.hotspots.some(h => h.to === t.id)) return;
+      const at = place(s, dir);
+      s.hotspots.push({ id: `auto-${s.id}-${t.id}`, auto: true, yaw: at.yaw, pitch: at.pitch, to: t.id, arriveYaw: t.startYaw || 0 });
+    };
+    link(ready[i + 1], 1); link(ready[i - 1], -1);
+  });
+}
 function guessName(fileName, i) {
   const base = fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
   const low = base.toLowerCase();
@@ -1429,6 +1474,7 @@ class Builder {
   }
   close() { document.body.classList.remove('building'); pano.editMode = false; pano.pickMode = false; this.mode = 'idle'; this.closePop(); this.hideBanner(); }
   syncPano(reshow) {
+    autoLink(this.tour.scenes);
     const prevSel = this.sel;
     const scenes = this.tour.scenes.filter(s => s.ready);
     // keep pano scenes in sync without dropping loaded textures
@@ -1516,13 +1562,24 @@ class Builder {
         badges.appendChild(h(`<span class="badge">${s.hotspots.length} arrow${s.hotspots.length === 1 ? '' : 's'}</span>`));
       } else if (s.error) badges.appendChild(h(`<span class="badge mid">Could not read</span>`));
       else badges.appendChild(h(`<span class="badge">Processing…</span>`));
+      if (s.ready && s.kind === 'photo' && Math.max(s.w, s.h) < 2200) badges.appendChild(h(`<span class="badge mid">Low resolution</span>`));
       card.setAttribute('aria-current', String(s.id === this.sel));
       card.addEventListener('click', () => { if (s.ready) this.select(s.id); });
       card.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === card && s.ready) { e.preventDefault(); this.select(s.id); } });
       card.querySelector('[data-a="del"]').addEventListener('click', e => { e.stopPropagation(); this.removeRoom(s.id); });
-      card.querySelector('[data-a="up"]').addEventListener('click', e => { e.stopPropagation(); if (i > 0) { const a = this.tour.scenes; [a[i - 1], a[i]] = [a[i], a[i - 1]]; this.renderList(); this.saveDraft(); } });
+      card.querySelector('[data-a="up"]').addEventListener('click', e => { e.stopPropagation(); if (i > 0) { const a = this.tour.scenes; [a[i - 1], a[i]] = [a[i], a[i - 1]]; this.syncPano(false); this.saveDraft(); toast('Order changed. Arrows follow the new order.'); } });
       if (i === 0) card.querySelector('[data-a="up"]').disabled = true;
       list.appendChild(card);
+      if (s.ready && s.id === this.sel) {
+        const chips = h(`<div class="namechips" role="group" aria-label="Pick a room name"></div>`);
+        ROOM_CHIPS.forEach(n => {
+          const b = h(`<button type="button" class="nchip"></button>`); b.textContent = n;
+          b.setAttribute('aria-pressed', String(s.name === n));
+          b.onclick = () => { s.name = n; inp.value = n; this.syncNames(); this.saveDraft(); chips.querySelectorAll('.nchip').forEach(x => x.setAttribute('aria-pressed', String(x === b))); };
+          chips.appendChild(b);
+        });
+        list.appendChild(chips);
+      }
     });
     this.renderNotes(); this.steps();
     const dz = $('#bDrop'); if (dz) { dz.classList.toggle('compact', this.tour.scenes.length > 0); dz.querySelector('b').textContent = this.tour.scenes.length ? 'Add more rooms' : 'Add 360° photos, one per room'; const sb = $('#bSample'); if (sb) sb.hidden = this.tour.scenes.length > 0; }
@@ -1535,9 +1592,11 @@ class Builder {
     const ready = this.tour.scenes.filter(s => s.ready);
     const flat = ready.filter(s => s.kind === 'photo');
     const errs = this.tour.scenes.filter(s => s.error);
-    if (flat.length) box.appendChild(h(`<div class="note"><b>${flat.length} normal photo${flat.length > 1 ? 's' : ''}.</b> A normal photo only shows what was in the frame, so buyers cannot turn around in that room. For a full walk-through, replace it with a 360° photo of the room.</div>`));
+    if (flat.length) { const nb = h(`<div class="note"><b>${flat.length} normal photo${flat.length > 1 ? 's' : ''}.</b> A normal photo only shows what was in the frame, so buyers cannot turn around in that room. For a real walk-through use one 360° photo per room. <button class="linkbtn" type="button">How to take them</button></div>`); nb.querySelector('.linkbtn').onclick = () => openHelp(); box.appendChild(nb); }
+    const small = flat.filter(s => Math.max(s.w, s.h) < 2200);
+    if (small.length) box.appendChild(h(`<div class="note"><b>Low-resolution photo${small.length > 1 ? 's' : ''}</b> (${small.map(s => Math.max(s.w, s.h) + ' px').join(', ')}). These look blurry when enlarged. Photos sent on WhatsApp are shrunk to about 1280 px: send them as a <b>Document</b>, or by Google Drive / USB cable, so the original quality reaches this page.</div>`));
     errs.forEach(s => { const n = h(`<div class="note err"></div>`); n.textContent = `${s.fileName}: ${s.error}`; box.appendChild(n); });
-    if (ready.length >= 2 && !ready.some(s => s.hotspots.length)) box.appendChild(h(`<div class="note"><b>Next: link the rooms.</b> Select a room, press <b>Add arrow</b>, then tap the doorway that leads to the next room.</div>`));
+    if (ready.length >= 2) box.appendChild(h(`<div class="note ok"><b>Rooms are connected automatically</b> in the order of this list. Use the arrow-up button to change the order. Optional: press <b>Add arrow</b> to place an arrow exactly on a doorway.</div>`));
   }
   renderTools() {
     const t = $('#bTools'); if (!t) return; t.innerHTML = '';
@@ -1552,6 +1611,11 @@ class Builder {
     const st = h(`<button class="btn small" id="tStart">${icon('i-target')}Set as starting view</button>`);
     st.onclick = () => { s.startYaw = Math.round(pano.yaw * 10) / 10; s.startPitch = Math.round(pano.pitch * 10) / 10; this.syncPano(false); this.saveDraft(); toast(`Starting view saved for ${s.name}.`); };
     t.appendChild(st);
+    if (s.kind === 'photo') {
+      const lens = h(`<div class="lens glass" role="group" aria-label="Camera lens used"><span>Lens</span><button type="button" data-l="1x">1×</button><button type="button" data-l="0.5x">0.5× wide</button></div>`);
+      lens.querySelectorAll('button').forEach(b => { b.setAttribute('aria-pressed', String(s.lens === b.dataset.l)); b.onclick = () => this.setLens(s, b.dataset.l); });
+      t.appendChild(lens);
+    }
     if (s.kind === 'pano' && !s.gpano) {
       const sl = h(`<div class="slider glass"><div class="lab"><span>Panorama width</span><span class="mono" id="covV"></span></div><input type="range" min="90" max="360" step="5" id="covR" aria-label="Panorama width in degrees"></div>`);
       t.appendChild(sl);
@@ -1560,6 +1624,11 @@ class Builder {
       let tm = null;
       r.addEventListener('input', () => { v.textContent = r.value + '°'; clearTimeout(tm); tm = setTimeout(() => { this.setCoverage(s, +r.value); }, 220); });
     }
+  }
+  setLens(s, l) {
+    s.lens = l; s.proj = photoProj(s.w, s.h, LENS_F35[l]); s.coverage = Math.round(2 * Math.atan(s.proj.tanH) / DEG);
+    const ps = pano.scenes.get(s.id); if (ps) { pano.invalidate(ps); ps.proj = s.proj; }
+    this.syncPano(false); pano.show(s.id, {}); this.renderTools(); this.saveDraft();
   }
   setCoverage(s, deg) {
     s.coverage = deg; s.proj = cylProj(s.w, s.h, deg);
@@ -1610,11 +1679,10 @@ class Builder {
       s.coverage = cov; s.proj = cylProj(W, H, cov);
     } else {
       s.kind = 'photo';
-      const f35 = meta.f35 && meta.f35 > 8 && meta.f35 < 400 ? meta.f35 : 26;
-      const long = Math.max(W, H), longFov = 2 * Math.atan(36 / (2 * f35));
-      const tLong = Math.tan(longFov / 2);
-      const tanH = W >= H ? tLong : tLong * W / H, tanV = W >= H ? tLong * H / W : tLong;
-      s.proj = { type: 2, tanH, tanV }; s.coverage = Math.round(2 * Math.atan(tanH) / DEG);
+      // camera info tells the lens; photos without it (e.g. sent on WhatsApp) are usually 0.5x wide-angle room shots
+      const f35 = meta.f35 && meta.f35 > 8 && meta.f35 < 400 ? meta.f35 : LENS_F35['0.5x'];
+      s.lens = f35 < 18 ? '0.5x' : '1x';
+      s.proj = photoProj(W, H, f35); s.coverage = Math.round(2 * Math.atan(s.proj.tanH) / DEG);
     }
     // thumbnail (2:1 crop from the middle band)
     const c = document.createElement('canvas'); c.width = 320; c.height = 160;
@@ -1776,7 +1844,7 @@ class Builder {
     this._saveT = setTimeout(async () => {
       const db = await this.openDB(); if (!db) return;
       try {
-        const data = { title: this.tour.title, scenes: this.tour.scenes.filter(s => s.ready).map(s => ({ id: s.id, name: s.name, fileName: s.fileName, file: s.file, kind: s.kind, proj: s.proj, coverage: s.coverage, w: s.w, h: s.h, gpano: !!s.gpano, thumb: s.thumb, hotspots: s.hotspots, startYaw: s.startYaw, startPitch: s.startPitch })) };
+        const data = { title: this.tour.title, scenes: this.tour.scenes.filter(s => s.ready).map(s => ({ id: s.id, name: s.name, fileName: s.fileName, file: s.file, kind: s.kind, proj: s.proj, coverage: s.coverage, w: s.w, h: s.h, gpano: !!s.gpano, thumb: s.thumb, lens: s.lens, hotspots: s.hotspots, startYaw: s.startYaw, startPitch: s.startPitch })) };
         const tx = db.transaction('draft', 'readwrite'); tx.objectStore('draft').put(data, 'tour');
         tx.oncomplete = () => { const d = $('#bDraft'); if (d) d.textContent = 'Draft saved in this browser only.'; };
       } catch (e) { /* storage unavailable */ }
