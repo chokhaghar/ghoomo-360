@@ -324,6 +324,7 @@ button{font:inherit;color:inherit}
   <svg id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>
   <svg id="i-drag" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 24h28M10 24l5-5M10 24l5 5M38 24l-5-5M38 24l-5 5"/><circle cx="24" cy="24" r="4" fill="currentColor"/></svg>
   <svg id="i-cube" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+  <svg id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
   <svg id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>
   <svg id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg>
   <svg id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
@@ -1360,6 +1361,7 @@ function goHome() {
       <div class="row">
         <button class="btn primary" id="hStart">${icon('i-play')}Start the demo tour</button>
         <button class="btn" id="hCreate">${icon('i-upload')}Make a tour of your property</button>
+        <button class="btn" id="hCapture">${icon('i-camera')}Phone se 360° photo lo</button>
       </div>
       <div class="meta"><span>${icon('i-cube')}5 rooms · 1BHK sample flat</span><span>${icon('i-phone')}Works on phone and desktop</span></div>
     </section>`);
@@ -1368,6 +1370,11 @@ function goHome() {
   ui.appendChild(brand);
   $('#hStart').onclick = () => startDemoTour();
   $('#hCreate').onclick = () => openBuilder();
+  $('#hCapture').onclick = () => openCapture();
+}
+function openCapture(opts) {
+  location.hash = 'capture';
+  if (window.GhoomoCapture) window.GhoomoCapture.open(opts || {}); else window.__wantCapture = opts || {};
 }
 function startDemoTour() {
   state.view = 'tour'; location.hash = 'demo';
@@ -1442,7 +1449,7 @@ function autoLink(scenes) {
   };
   ready.forEach((s, i) => {
     const link = (t, dir) => {
-      if (!t || s.hotspots.some(h => h.to === t.id)) return;
+      if (!t || s.noAuto || t.noAuto || s.hotspots.some(h => h.to === t.id)) return;
       const at = place(s, dir);
       s.hotspots.push({ id: `auto-${s.id}-${t.id}`, auto: true, yaw: at.yaw, pitch: at.pitch, to: t.id, arriveYaw: t.startYaw || 0 });
     };
@@ -1508,7 +1515,7 @@ class Builder {
           ${icon('i-upload')}
           <b>Add 360° photos, one per room</b>
           <small>2:1 panorama JPG or PNG from a 360° camera, phone 360 app or 3D render. Phone panoramas also work.</small>
-          <div class="row"><span class="btn small primary">Choose photos</span><button class="btn small" type="button" id="bSample">Use sample photos</button></div>
+          <div class="row"><span class="btn small primary">Choose photos</span><button class="btn small" type="button" id="bCam">${icon('i-camera')}Phone camera se lo</button><button class="btn small" type="button" id="bSample">Use sample photos</button></div>
           <input type="file" id="bFile" accept="image/jpeg,image/png,image/webp" multiple hidden>
         </label>
         <div class="steps" aria-hidden="true"><span id="st1"><i>1</i>Add photos</span><span id="st2"><i>2</i>Link rooms</span><span id="st3"><i>3</i>Preview</span></div>
@@ -1533,6 +1540,7 @@ class Builder {
     ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
     drop.addEventListener('drop', e => { const fs = [...(e.dataTransfer && e.dataTransfer.files || [])].filter(f => /^image\//.test(f.type)); if (fs.length) this.addFiles(fs); });
     $('#bSample').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); this.loadSamples(); });
+    $('#bCam').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openCapture(); });
     this.renderList(); this.renderTools();
   }
   steps() {
@@ -1694,6 +1702,19 @@ class Builder {
     s.thumb = c.toDataURL('image/jpeg', 0.8);
     s.ready = true;
   }
+  /* rooms from the phone capture: names, start view and door arrows are already known */
+  async addCaptured(title, rooms) {
+    if (title) { this.tour.title = title; const t = $('#bTitle'); if (t) t.value = title; }
+    const items = rooms.map(r => { const s = { id: 'r' + Date.now().toString(36) + (this.counter++), name: r.name, fileName: r.file.name, file: r.file, ready: false, hotspots: [], startYaw: round1(wrap(r.startYaw || 0)), startPitch: 0, noAuto: true }; this.tour.scenes.push(s); return s; });
+    this.renderList();
+    for (const s of items) { try { await this.process(s); } catch (e) { console.error(e); s.error = (e && e.message) || 'This file could not be opened.'; } this.renderList(); }
+    rooms.forEach((r, k) => r.links.forEach(L => {
+      const t = items[L.to]; if (!t) return;
+      items[k].hotspots.push({ id: 'c' + items[k].id + '-' + t.id, yaw: round1(wrap(L.yaw)), pitch: -30, to: t.id, arriveYaw: round1(wrap(L.arriveYaw)) });
+    }));
+    this.sel = items[0].id; this.syncPano(true); this.saveDraft();
+    toast(`${items.length} room${items.length > 1 ? 's' : ''} jud gaye. "Preview tour" dabaiye.`, 4000);
+  }
   removeRoom(id) {
     const s = this.tour.scenes.find(x => x.id === id); if (!s) return;
     this.tour.scenes = this.tour.scenes.filter(x => x.id !== id);
@@ -1844,7 +1865,7 @@ class Builder {
     this._saveT = setTimeout(async () => {
       const db = await this.openDB(); if (!db) return;
       try {
-        const data = { title: this.tour.title, scenes: this.tour.scenes.filter(s => s.ready).map(s => ({ id: s.id, name: s.name, fileName: s.fileName, file: s.file, kind: s.kind, proj: s.proj, coverage: s.coverage, w: s.w, h: s.h, gpano: !!s.gpano, thumb: s.thumb, lens: s.lens, hotspots: s.hotspots, startYaw: s.startYaw, startPitch: s.startPitch })) };
+        const data = { title: this.tour.title, scenes: this.tour.scenes.filter(s => s.ready).map(s => ({ id: s.id, name: s.name, fileName: s.fileName, file: s.file, kind: s.kind, proj: s.proj, coverage: s.coverage, w: s.w, h: s.h, gpano: !!s.gpano, thumb: s.thumb, lens: s.lens, noAuto: !!s.noAuto, hotspots: s.hotspots, startYaw: s.startYaw, startPitch: s.startPitch })) };
         const tx = db.transaction('draft', 'readwrite'); tx.objectStore('draft').put(data, 'tour');
         tx.oncomplete = () => { const d = $('#bDraft'); if (d) d.textContent = 'Draft saved in this browser only.'; };
       } catch (e) { /* storage unavailable */ }
@@ -1924,10 +1945,698 @@ function route() {
   }
   const hsh = (location.hash || '').slice(1);
   if (hsh === 'create') openBuilder();
+  else if (hsh === 'capture' || hsh === 'capture-sim') { goHome(); openCapture(hsh === 'capture-sim' ? { sim: true } : {}); }
   else if (hsh === 'demo') { goHome(); startDemoTour(); }
   else goHome();
 }
+window.GhoomoApp = {
+  goHome, toast, ROOM_CHIPS,
+  async importCaptured(title, rooms) { openBuilder(); await new Promise(r => setTimeout(r, 50)); await builder.addCaptured(title, rooms); },
+};
 route();
+})();
+</script>
+<style id="capture-css">
+/* ---------- phone capture mode ---------- */
+.cap{position:fixed;inset:0;z-index:50;background:#000;color:var(--text);font-family:var(--f-body);overflow:hidden;touch-action:none}
+.cap video,.cap .simsrc{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.cap canvas.ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cap .top{position:absolute;left:0;right:0;top:0;padding:calc(var(--top) + 4px) 14px 14px;display:flex;align-items:flex-start;gap:10px;background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0))}
+.cap .top .tt{flex:1;min-width:0}
+.cap .top b{display:block;font-family:var(--f-display);font-variation-settings:"wdth" 110;font-size:17px;line-height:1.2}
+.cap .top span{font-size:13px;color:#e4dfd6}
+.cap .ibtn{flex:none}
+.cap .bar{position:absolute;left:14px;right:14px;bottom:calc(var(--bot) + 6px);display:flex;flex-direction:column;gap:10px;align-items:stretch}
+.cap .tip{align-self:center;max-width:min(440px,100%);box-sizing:border-box;text-align:center;padding:10px 16px;border-radius:14px;background:rgba(12,14,18,.82);border:1px solid var(--line);font-size:14.5px;font-weight:600;line-height:1.35}
+.cap .tip small{display:block;font-weight:400;color:var(--muted);font-size:12.5px;margin-top:2px}
+.cap .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.cap .prog{height:6px;border-radius:9px;background:rgba(255,255,255,.18);overflow:hidden;align-self:center;width:min(440px,100%)}
+.cap .prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s ease}
+.cap .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s ease}
+.cap .flash.on{opacity:.55;transition:none}
+.cap .panel{position:absolute;left:0;right:0;bottom:0;max-height:88%;overflow:auto;box-sizing:border-box;padding:22px 18px calc(var(--bot) + 18px);background:var(--ink-2);border-top:1px solid var(--line);border-radius:22px 22px 0 0;z-index:3}
+.cap .panel.full{top:0;max-height:none;border-radius:0;border-top:0;padding-top:calc(var(--top) + 18px)}
+.cap .panel h2{font-family:var(--f-display);font-variation-settings:"wdth" 112;font-size:22px;line-height:1.15;margin:0 0 8px}
+.cap .panel p{margin:0 0 12px;color:#d6d1c8;font-size:14.5px}
+.cap .panel ol{margin:6px 0 16px;padding-left:22px;color:#d6d1c8;font-size:14.5px}
+.cap .panel ol li{margin:6px 0}
+.cap .panel .k{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.cap .panel input[type=text]{width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid var(--line-2);border-radius:12px;color:var(--text);font:inherit;font-size:15px;padding:11px 12px;margin:4px 0 12px}
+.cap .panel .btn{min-height:48px;font-size:15px}
+.cap .panel .wide{width:100%}
+.cap .chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
+.cap .chips button{font:inherit;font-size:14px;padding:9px 14px;border-radius:999px;border:1px solid var(--line-2);background:rgba(255,255,255,.05);color:var(--text);cursor:pointer}
+.cap .chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.cap .pv{width:100%;aspect-ratio:2/1;object-fit:cover;border-radius:12px;display:block;background:#111;margin:4px 0 12px}
+.cap .roomsdone{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.cap .roomsdone span{font-size:12.5px;padding:4px 10px;border-radius:999px;border:1px solid rgba(127,211,160,.5);color:var(--ok)}
+.cap .warn{padding:10px 12px;border-radius:12px;border:1px solid rgba(242,201,76,.4);background:rgba(242,201,76,.08);color:#efe2b8;font-size:13.5px;margin:0 0 12px}
+.cap .spin{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.18);border-top-color:var(--accent);animation:spin .9s linear infinite;margin:6px auto 14px}
+.cap .center{text-align:center}
+.cap .tilt{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.78);z-index:4;font-size:17px;font-weight:600;text-align:center;padding:30px}
+</style>
+<script id="capture-script">
+/* =====================================================================
+   Ghoomo 360 capture mode: guided phone capture -> stitched 360° photo.
+   The phone's motion sensors say where each photo points; photos are then
+   aligned more precisely by matching their overlaps, blended into one
+   equirectangular image, auto-enhanced, and handed to the tour builder.
+   ===================================================================== */
+(function () {
+'use strict';
+const DEG = Math.PI / 180;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const wrap = a => ((a + 180) % 360 + 360) % 360 - 180;
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const dirOf = (yaw, pitch) => [Math.cos(pitch * DEG) * Math.sin(yaw * DEG), Math.sin(pitch * DEG), -Math.cos(pitch * DEG) * Math.cos(yaw * DEG)];
+const yawOf = f => Math.atan2(f[0], -f[2]) / DEG;
+const pitchOf = f => Math.asin(clamp(f[1], -1, 1)) / DEG;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const frame = () => new Promise(r => requestAnimationFrame(() => r()));
+
+/* phone orientation (W3C deviceorientation, Z-X'-Y'') -> camera basis in viewer space
+   viewer space: x = east, y = up, z = south (so yaw 0 looks north, yaw 90 looks east) */
+function basisFromEuler(alpha, beta, gamma) {
+  const a = (alpha || 0) * DEG, b = (beta || 0) * DEG, g = (gamma || 0) * DEG;
+  const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b), cg = Math.cos(g), sg = Math.sin(g);
+  // R = Rz(a) Rx(b) Ry(g): columns are the device axes in earth (east, north, up) coordinates
+  const X = [ca * cg - sa * sb * sg, sa * cg + ca * sb * sg, -cb * sg];
+  const Y = [-sa * cb, ca * cb, sb];
+  const Z = [ca * sg + sa * sb * cg, sa * sg - ca * sb * cg, cb * cg];
+  const toV = e => [e[0], e[2], -e[1]];
+  return { r: toV(X), u: toV(Y), f: toV([-Z[0], -Z[1], -Z[2]]) };   // back camera looks along -Z
+}
+function rotate(v, k, ang) {           // Rodrigues: rotate v about unit axis k
+  const c = Math.cos(ang), s = Math.sin(ang), d = dot(k, v);
+  return [v[0] * c + (k[1] * v[2] - k[2] * v[1]) * s + k[0] * d * (1 - c),
+          v[1] * c + (k[2] * v[0] - k[0] * v[2]) * s + k[1] * d * (1 - c),
+          v[2] * c + (k[0] * v[1] - k[1] * v[0]) * s + k[2] * d * (1 - c)];
+}
+function turn(B, axis, ang) { const k = B[axis]; return { r: norm(rotate(B.r, k, ang)), u: norm(rotate(B.u, k, ang)), f: norm(rotate(B.f, k, ang)) }; }
+
+/* shot plan around one standing point; yaw is relative to the direction the person faced at the start */
+function makeTargets() {
+  const t = [];
+  for (let k = 0; k < 12; k++) t.push({ yaw: k * 30, pitch: 0, ring: 0 });
+  for (let k = 0; k < 8; k++) t.push({ yaw: k * 45 + 15, pitch: 45, ring: 1 });
+  for (let k = 0; k < 8; k++) t.push({ yaw: k * 45 + 30, pitch: -45, ring: 2 });
+  t.push({ yaw: 0, pitch: 89, ring: 3 });
+  t.push({ yaw: 0, pitch: -89, ring: 4 });
+  return t;
+}
+const RING_TIP = [
+  ['Dot ko gol ghere mein laao', 'Pairon par dheere ghoomiye, phone ek jagah rakhiye'],
+  ['Ab thoda upar: chhat ki taraf', 'Phone upar jhukaiye, dot ke peeche chaliye'],
+  ['Ab neeche: farsh ki taraf', 'Phone neeche jhukaiye'],
+  ['Seedha upar chhat ki taraf', 'Phone ko sar ke upar le jaiye'],
+  ['Seedha neeche farsh ki taraf', 'Pairon ke paas ka farsh'],
+];
+
+/* ===================================================================== stitcher */
+const ASSUMED_FOV = 66;   // degrees across the long side of a phone video frame (typical main camera)
+
+async function lowRes(blob, W) {
+  const bmp = await createImageBitmap(blob, { resizeWidth: W, resizeQuality: 'medium' });
+  const w = bmp.width, h = bmp.height;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0); if (bmp.close) bmp.close();
+  const d = g.getImageData(0, 0, w, h).data; const gray = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) gray[i] = (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]) / 255;
+  // light blur: matching is about structure, not noise
+  const out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let s = 0, n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h) { s += gray[yy * w + xx]; n++; } }
+    out[y * w + x] = s / n;
+  }
+  return { w, h, g: out };
+}
+function sampleGray(L, x, y) {         // x,y in pixels, bilinear
+  const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0;
+  const i = y0 * L.w + x0, g = L.g;
+  return (g[i] * (1 - fx) + g[i + 1] * fx) * (1 - fy) + (g[i + L.w] * (1 - fx) + g[i + L.w + 1] * fx) * fy;
+}
+
+function makeAligner(shots) {
+  const N = shots.length;
+  const pairs = [];
+  for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) if (dot(shots[i].B.f, shots[j].B.f) > Math.cos(70 * DEG)) pairs.push([i, j]);
+  // sample grid inside each image (normalised coords) and its gray values
+  const GX = 14, GY = 22;
+  for (const s of shots) {
+    s.pts = [];
+    for (let a = 0; a < GY; a++) for (let b = 0; b < GX; b++) {
+      const x = -0.92 + 1.84 * b / (GX - 1), y = -0.92 + 1.84 * a / (GY - 1);
+      s.pts.push([x, y, sampleGray(s.lo, (x + 1) / 2 * (s.lo.w - 1.001), (1 - y) / 2 * (s.lo.h - 1.001))]);
+    }
+  }
+  // cost of one pair: 1 - normalised cross-correlation of overlapping samples (both directions)
+  function pairStats(i, j, tl) {
+    const A = shots[i], Bs = shots[j];
+    const va = [], vb = [];
+    const one = (P, Q) => {
+      const tx = tl * P.ax, ty = tl * P.ay, qx = tl * Q.ax, qy = tl * Q.ay, PB = P.B, QB = Q.B;
+      for (const p of P.pts) {
+        const d = [PB.f[0] + p[0] * tx * PB.r[0] + p[1] * ty * PB.u[0], PB.f[1] + p[0] * tx * PB.r[1] + p[1] * ty * PB.u[1], PB.f[2] + p[0] * tx * PB.r[2] + p[1] * ty * PB.u[2]];
+        const z = dot(d, QB.f); if (z <= 0.05) continue;
+        const x = dot(d, QB.r) / (z * qx), y = dot(d, QB.u) / (z * qy);
+        if (x < -0.96 || x > 0.96 || y < -0.96 || y > 0.96) continue;
+        const g = sampleGray(Q.lo, (x + 1) / 2 * (Q.lo.w - 1.001), (1 - y) / 2 * (Q.lo.h - 1.001));
+        if (P === A) { va.push(p[2]); vb.push(g); } else { va.push(g); vb.push(p[2]); }
+      }
+    };
+    one(A, Bs); one(Bs, A);
+    const n = va.length; if (n < 24) return null;
+    let ma = 0, mb = 0; for (let k = 0; k < n; k++) { ma += va[k]; mb += vb[k]; } ma /= n; mb /= n;
+    let sab = 0, saa = 0, sbb = 0; for (let k = 0; k < n; k++) { const a = va[k] - ma, b = vb[k] - mb; sab += a * b; saa += a * a; sbb += b * b; }
+    const ncc = sab / Math.sqrt(saa * sbb + 1e-9);
+    return { n, cost: (1 - ncc) * n, ma, mb };
+  }
+  function cost(tl, only) {
+    let c = 0, n = 0;
+    for (const [i, j] of pairs) {
+      if (only != null && i !== only && j !== only) continue;
+      const s = pairStats(i, j, tl); if (!s) continue; c += s.cost; n += s.n;
+    }
+    return n ? c / n : 9;
+  }
+  return { pairs, pairStats, cost };
+}
+
+async function alignShots(shots, onProg) {
+  for (let i = 0; i < shots.length; i++) {
+    shots[i].lo = await lowRes(shots[i].blob, 112);
+    const L = shots[i].lo, long = Math.max(L.w, L.h);
+    shots[i].ax = L.w / long; shots[i].ay = L.h / long;     // tan-scale per axis relative to the long side
+    if (onProg) onProg(0.05 + 0.15 * i / shots.length);
+    if (i % 4 === 3) await frame();
+  }
+  const A = makeAligner(shots);
+  const tOf = fov => Math.tan(fov / 2 * DEG);
+  // 1) lens: which field of view makes the overlaps agree best
+  let bestF = ASSUMED_FOV, bestC = A.cost(tOf(ASSUMED_FOV));
+  for (let f = 50; f <= 82; f += 2) { const c = A.cost(tOf(f)); if (c < bestC) { bestC = c; bestF = f; } }
+  if (onProg) onProg(0.28); await frame();
+  // 2) each photo's direction, nudged in shrinking steps (first photo stays as the reference)
+  const refine = async (tl, steps, passes, p0, p1) => {
+    let done = 0; const total = passes * (shots.length - 1);
+    for (let pass = 0; pass < passes; pass++) {
+      for (let i = 1; i < shots.length; i++) {
+        let cur = A.cost(tl, i);
+        for (const st of steps) for (const ax of ['u', 'r', 'f']) for (const sg of [1, -1]) {
+          const keep = shots[i].B; shots[i].B = turn(keep, ax, sg * st * DEG);
+          const c = A.cost(tl, i); if (c < cur - 1e-5) cur = c; else shots[i].B = keep;
+        }
+        done++; if (onProg) onProg(p0 + (p1 - p0) * done / total);
+        if (i % 3 === 0) await frame();
+      }
+    }
+  };
+  await refine(tOf(bestF), [2, 1, 0.5], 2, 0.28, 0.5);
+  for (let f = bestF - 2; f <= bestF + 2; f += 0.5) { const c = A.cost(tOf(f)); if (c < bestC) { bestC = c; bestF = f; } }
+  await refine(tOf(bestF), [0.5, 0.25], 1, 0.5, 0.6);
+  const tl = tOf(bestF);
+  // 3) brightness: one gain per photo so overlaps match
+  const N = shots.length, g = new Float64Array(N).fill(1); const terms = [];
+  for (const [i, j] of A.pairs) { const s = A.pairStats(i, j, tl); if (s) terms.push([i, j, s.ma, s.mb, s.n]); }
+  for (let it = 0; it < 40; it++) for (let i = 0; i < N; i++) {
+    let num = 0.02, den = 0.02;
+    for (const [a, b, ma, mb, n] of terms) {
+      if (a === i) { num += n * g[b] * mb * ma; den += n * ma * ma; }
+      else if (b === i) { num += n * g[a] * ma * mb; den += n * mb * mb; }
+    }
+    g[i] = clamp(num / den, 0.5, 2);
+  }
+  const med = [...g].sort((a, b) => a - b)[N >> 1]; for (let i = 0; i < N; i++) shots[i].gain = g[i] / med;
+  return { fov: bestF, tl, quality: 1 - bestC };
+}
+
+/* ---- GPU blend into an equirectangular image ---- */
+const VS = `#version 300 es
+in vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
+const FS_ACC = `#version 300 es
+precision highp float;
+uniform sampler2D uImg; uniform vec3 uR, uU, uF; uniform vec2 uT; uniform vec2 uOut; uniform float uGain, uWs;
+out vec4 o;
+void main(){
+  vec2 uv = gl_FragCoord.xy / uOut;           // v = 0 at the top row of the final image
+  float lon = (uv.x - 0.5) * 6.2831853, lat = (0.5 - uv.y) * 3.1415927;
+  vec3 d = vec3(cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon));
+  float z = dot(d, uF); if (z <= 0.02) discard;
+  float x = dot(d, uR) / (z * uT.x), y = dot(d, uU) / (z * uT.y);
+  if (abs(x) > 1.0 || abs(y) > 1.0) discard;
+  float w = pow(max((1.0 - x * x) * (1.0 - y * y), 0.0), 2.5) + 1e-4;
+  vec3 c = texture(uImg, vec2(0.5 + 0.5 * x, 0.5 - 0.5 * y)).rgb;
+  o = vec4(c * uGain * w, w) * uWs;
+}`;
+const FS_FIN = `#version 300 es
+precision highp float;
+uniform sampler2D uAcc; uniform sampler2D uFill; uniform vec2 uOut;
+uniform vec3 uWb; uniform vec2 uLv; uniform float uGam, uSat, uSharp, uOn;
+out vec4 o;
+vec4 at(vec2 px){ return texture(uAcc, px / uOut); }
+vec3 col(vec4 a, vec2 uv){ return a.a > 1e-5 ? a.rgb / a.a : texture(uFill, uv).rgb; }
+void main(){
+  vec2 px = gl_FragCoord.xy, uv = px / uOut;
+  vec4 a = at(px);
+  vec3 c = col(a, uv);
+  if (uOn > 0.5) {
+    vec3 n = (col(at(px + vec2(1.0, 0.0)), uv) + col(at(px - vec2(1.0, 0.0)), uv) + col(at(px + vec2(0.0, 1.0)), uv) + col(at(px - vec2(0.0, 1.0)), uv)) * 0.25;
+    c = c + uSharp * (c - n);
+    c = clamp(c * uWb, 0.0, 4.0);
+    c = clamp((c - uLv.x) / (uLv.y - uLv.x), 0.0, 1.0);
+    c = pow(c, vec3(uGam));
+    float l = dot(c, vec3(0.299, 0.587, 0.114));
+    c = mix(vec3(l), c, uSat);
+    c = mix(c, c * c * (3.0 - 2.0 * c), 0.18);          // gentle contrast
+  }
+  o = vec4(clamp(c, 0.0, 1.0), a.a > 1e-5 ? 1.0 : 0.0);
+}`;
+function glProgram(gl, fs) {
+  const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
+  const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, VS)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); for (let i = 0; i < n; i++) { const a = gl.getActiveUniform(p, i); u[a.name] = gl.getUniformLocation(p, a.name); }
+  return { p, u };
+}
+function pushPull(rgba, w, h) {        // fill uncovered pixels (alpha 0) from their surroundings
+  const levels = [{ w, h, d: Float32Array.from(rgba) }];
+  while (levels[levels.length - 1].w > 2) {
+    const L = levels[levels.length - 1], W2 = Math.max(1, L.w >> 1), H2 = Math.max(1, L.h >> 1), d = new Float32Array(W2 * H2 * 4);
+    for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) { const xx = Math.min(L.w - 1, 2 * x + dx), yy = Math.min(L.h - 1, 2 * y + dy), i = (yy * L.w + xx) * 4, al = L.d[i + 3]; r += L.d[i] * al; g += L.d[i + 1] * al; b += L.d[i + 2] * al; a += al; }
+      const o = (y * W2 + x) * 4; if (a > 0) { d[o] = r / a; d[o + 1] = g / a; d[o + 2] = b / a; d[o + 3] = Math.min(1, a); }
+    }
+    levels.push({ w: W2, h: H2, d });
+  }
+  for (let k = levels.length - 2; k >= 0; k--) {
+    const L = levels[k], U = levels[k + 1];
+    for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) {
+      const i = (y * L.w + x) * 4; if (L.d[i + 3] >= 0.999) continue;
+      const j = (Math.min(U.h - 1, y >> 1) * U.w + Math.min(U.w - 1, x >> 1)) * 4, a = L.d[i + 3];
+      for (let c = 0; c < 3; c++) L.d[i + c] = L.d[i + c] * a + U.d[j + c] * (1 - a);
+      L.d[i + 3] = 1;
+    }
+  }
+  return levels[0].d;
+}
+
+async function stitchRoom(shots, opts = {}) {
+  const onProg = opts.onProgress || (() => {});
+  const al = await alignShots(shots, onProg);
+  const cv = document.createElement('canvas');
+  const gl = cv.getContext('webgl2', { premultipliedAlpha: false, preserveDrawingBuffer: true, antialias: false });
+  if (!gl) throw new Error('Is phone par 360° jodne ki suvidha (WebGL2) nahi hai.');
+  const floatOk = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
+  gl.getExtension('OES_texture_float_linear');
+  const maxT = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  const OW = Math.min(opts.width || 4096, maxT), OH = OW / 2;
+  const P1 = glProgram(gl, FS_ACC), P2 = glProgram(gl, FS_FIN);
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  const acc = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, acc);
+  gl.texStorage2D(gl.TEXTURE_2D, 1, floatOk ? gl.RGBA16F : gl.RGBA8, OW, OH);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, acc, 0);
+  gl.viewport(0, 0, OW, OH); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+  gl.useProgram(P1.p); gl.uniform2f(P1.u.uOut, OW, OH); gl.uniform1i(P1.u.uImg, 0); gl.uniform1f(P1.u.uWs, floatOk ? 1 : 0.25);
+  const img = gl.createTexture();
+  for (let i = 0; i < shots.length; i++) {
+    const s = shots[i];
+    const bmp = await createImageBitmap(s.blob);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, img);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, bmp); gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const long = Math.max(bmp.width, bmp.height);
+    gl.uniform3fv(P1.u.uR, s.B.r); gl.uniform3fv(P1.u.uU, s.B.u); gl.uniform3fv(P1.u.uF, s.B.f);
+    gl.uniform2f(P1.u.uT, al.tl * bmp.width / long, al.tl * bmp.height / long); gl.uniform1f(P1.u.uGain, s.gain || 1);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (bmp.close) bmp.close();
+    onProg(0.6 + 0.25 * (i + 1) / shots.length);
+    await frame();
+  }
+  gl.disable(gl.BLEND);
+  // small version: statistics for the auto-enhance, and a filled background for any gap
+  const SW = 512, SH = 256;
+  const small = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, small); gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, SW, SH);
+  const fb2 = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb2); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, small, 0);
+  const fill = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, fill); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255]));
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.useProgram(P2.p); gl.uniform1i(P2.u.uAcc, 0); gl.uniform1i(P2.u.uFill, 1);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, acc); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, fill);
+  gl.viewport(0, 0, SW, SH); gl.uniform2f(P2.u.uOut, SW, SH); gl.uniform1f(P2.u.uOn, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  const sp = new Uint8Array(SW * SH * 4); gl.readPixels(0, 0, SW, SH, gl.RGBA, gl.UNSIGNED_BYTE, sp);
+  // enhancement settings from the small image (top/bottom rows weigh less, like on a sphere)
+  let sr = 0, sg = 0, sb = 0, sw = 0, cover = 0; const lum = [];
+  for (let y = 0; y < SH; y++) { const wy = Math.cos(((y + 0.5) / SH - 0.5) * Math.PI); for (let x = 0; x < SW; x++) { const i = (y * SW + x) * 4; if (!sp[i + 3]) continue; cover += wy; sr += sp[i] * wy; sg += sp[i + 1] * wy; sb += sp[i + 2] * wy; sw += wy; if ((x + y) % 3 === 0) lum.push((0.299 * sp[i] + 0.587 * sp[i + 1] + 0.114 * sp[i + 2]) / 255); } }
+  let totalW = 0; for (let y = 0; y < SH; y++) totalW += Math.cos(((y + 0.5) / SH - 0.5) * Math.PI) * SW;
+  const mr = sr / sw, mg = sg / sw, mb = sb / sw, mgray = (mr + mg + mb) / 3;
+  const wb = [1 + 0.6 * (mgray / mr - 1), 1 + 0.6 * (mgray / mg - 1), 1 + 0.6 * (mgray / mb - 1)].map(v => clamp(v, 0.8, 1.25));
+  lum.sort((a, b) => a - b);
+  const lo = clamp(lum[Math.floor(lum.length * 0.004)] * 0.9, 0, 0.12), hi = clamp(lum[Math.floor(lum.length * 0.997)] * 1.02, 0.6, 1);
+  const midLv = clamp((lum[lum.length >> 1] - lo) / (hi - lo), 0.05, 0.95);
+  const gam = clamp(Math.log(0.47) / Math.log(midLv), 0.62, 1.25);
+  // gap filler
+  const f = new Float32Array(SW * SH * 4); for (let i = 0; i < SW * SH; i++) { f[i * 4] = sp[i * 4] / 255; f[i * 4 + 1] = sp[i * 4 + 1] / 255; f[i * 4 + 2] = sp[i * 4 + 2] / 255; f[i * 4 + 3] = sp[i * 4 + 3] ? 1 : 0; }
+  const filled = pushPull(f, SW, SH); const fb8 = new Uint8Array(SW * SH * 4); for (let i = 0; i < filled.length; i++) fb8[i] = clamp(Math.round(filled[i] * 255), 0, 255);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, fill); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, SW, SH, 0, gl.RGBA, gl.UNSIGNED_BYTE, fb8);
+  onProg(0.9); await frame();
+  // final full-size pass
+  const out = gl.createTexture(); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out); gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, OW, OH);
+  const fb3 = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb3); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, out, 0);
+  gl.viewport(0, 0, OW, OH); gl.uniform2f(P2.u.uOut, OW, OH); gl.uniform1f(P2.u.uOn, opts.enhance === false ? 0 : 1);
+  gl.uniform3fv(P2.u.uWb, wb); gl.uniform2f(P2.u.uLv, lo, hi); gl.uniform1f(P2.u.uGam, gam); gl.uniform1f(P2.u.uSat, 1.08); gl.uniform1f(P2.u.uSharp, 0.35);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  const px = new Uint8ClampedArray(OW * OH * 4); gl.readPixels(0, 0, OW, OH, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  for (let i = 3; i < px.length; i += 4) px[i] = 255;
+  const c2 = document.createElement('canvas'); c2.width = OW; c2.height = OH;
+  c2.getContext('2d').putImageData(new ImageData(px, OW, OH), 0, 0);
+  const blob = await new Promise(r => c2.toBlob(r, 'image/jpeg', 0.9));
+  const ext = gl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext();
+  onProg(1);
+  return { blob, width: OW, height: OH, fov: al.fov, quality: al.quality, coverage: cover / totalW };
+}
+
+/* ===================================================================== camera sources */
+async function openCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Is browser mein camera nahi khul sakta. Chrome ya Safari mein kholiye.');
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+  const v = document.createElement('video'); v.playsInline = true; v.muted = true; v.setAttribute('playsinline', ''); v.srcObject = stream;
+  await v.play();
+  const track = stream.getVideoTracks()[0];
+  try { const caps = track.getCapabilities ? track.getCapabilities() : {}; if (caps.focusMode && caps.focusMode.includes('continuous')) await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) { /* optional */ }
+  return { el: v, get w() { return v.videoWidth; }, get h() { return v.videoHeight; }, stop() { stream.getTracks().forEach(t => t.stop()); } };
+}
+/* test camera: renders a known 360° photo at the reported orientation, with a slowly wandering
+   sensor error and a lens the app does not know - used to check the whole pipeline */
+async function openSimCamera(url) {
+  const W = 540, H = 960, c = document.createElement('canvas'); c.width = W; c.height = H; c.className = 'simsrc';
+  const gl = c.getContext('webgl2', { preserveDrawingBuffer: true });
+  const im = await createImageBitmap(await (await fetch(url)).blob());
+  const P = glProgram(gl, `#version 300 es
+precision highp float; uniform sampler2D uE; uniform vec3 uR,uU,uF; uniform vec2 uT,uOut; out vec4 o;
+void main(){ vec2 n = gl_FragCoord.xy / uOut * 2.0 - 1.0; vec3 d = normalize(uF + n.x*uT.x*uR + n.y*uT.y*uU);
+  float lon = atan(d.x, -d.z), lat = asin(clamp(d.y,-1.0,1.0)); o = texture(uE, vec2(0.5 + lon/6.2831853, 0.5 - lat/3.1415927)); }`);
+  const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im); gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  const TRUE_FOV = 62, tl = Math.tan(TRUE_FOV / 2 * DEG);
+  const src = { el: c, w: W, h: H, stop() {}, sim: true, render(B) {
+    const tt = performance.now() / 1000;    // wandering sensor error (about ±1.5°)
+    let E = turn(B, 'u', 1.5 * Math.sin(tt * 0.7) * DEG); E = turn(E, 'r', 1.2 * Math.sin(tt * 0.53 + 1) * DEG); E = turn(E, 'f', 1.0 * Math.sin(tt * 0.41 + 2) * DEG);
+    gl.viewport(0, 0, W, H); gl.useProgram(P.p); gl.uniform3fv(P.u.uR, E.r); gl.uniform3fv(P.u.uU, E.u); gl.uniform3fv(P.u.uF, E.f);
+    gl.uniform2f(P.u.uT, tl * W / H, tl); gl.uniform2f(P.u.uOut, W, H); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  } };
+  return src;
+}
+
+/* ===================================================================== capture app */
+const ui = () => document.getElementById('ui');
+const h = html => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const NAME_SUGGEST = ['Entrance', 'Living Room', 'Kitchen', 'Master Bedroom', 'Bedroom 2', 'Bathroom', 'Balcony', 'Bedroom 3', 'Terrace'];
+
+class Capture {
+  constructor(opts) {
+    this.sim = !!opts.sim; this.rooms = []; this.title = 'My property';
+    this.orient = null; this.lastEvt = 0; this.B = null; this.cam = null;
+    this.onOrient = e => { if (e.alpha == null && e.beta == null) return; this.orient = { a: e.alpha || 0, b: e.beta || 0, g: e.gamma || 0 }; this.lastEvt = performance.now(); };
+  }
+  mount() {
+    this.root = h(`<div class="cap" role="application" aria-label="360 photo capture"><div class="flash"></div><canvas class="ov"></canvas></div>`);
+    document.body.appendChild(this.root);
+    this.ov = this.root.querySelector('.ov'); this.flashEl = this.root.querySelector('.flash');
+    window.addEventListener('deviceorientation', this.onOrient);
+    this.intro();
+  }
+  destroy() {
+    this.running = false; window.removeEventListener('deviceorientation', this.onOrient);
+    if (this.cam) this.cam.stop(); if (this.wake) try { this.wake.release(); } catch (e) {}
+    if (this.root) this.root.remove(); window.__cap = null;
+  }
+  panel(html, full) {
+    const old = this.root.querySelector('.panel'); if (old) old.remove();
+    const p = h(`<section class="panel${full ? ' full' : ''}">${html}</section>`); this.root.appendChild(p); return p;
+  }
+  clearPanel() { const old = this.root.querySelector('.panel'); if (old) old.remove(); }
+  chips(el, list, sel, onPick) {
+    el.innerHTML = '';
+    list.forEach(n => { const b = h(`<button type="button"></button>`); b.textContent = n; b.setAttribute('aria-pressed', String(n === sel)); b.onclick = () => { el.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); onPick(n); }; el.appendChild(b); });
+  }
+  /* ---- step 0: what this does, permissions ---- */
+  intro() {
+    const p = this.panel(`
+      <div class="k">Phone se 360° photo</div>
+      <h2>Ek jagah khade hokar poora room capture kariye</h2>
+      <ol>
+        <li>Har room ke <b>beech mein</b> khade hoiye. Phone <b>seedha (portrait)</b> pakadiye.</li>
+        <li>Screen par ek <b>dot</b> aayega. Use beech ke <b>gol ghere</b> mein laaiye: photo apne aap khinch jayegi.</li>
+        <li>Pehle chaaron taraf, phir upar chhat, phir neeche farsh. Lagbhag 30 photos, 1–2 minute.</li>
+        <li>Phone ko <b>aankhon ke saamne ek hi jagah</b> rakhiye aur <b>apne pairon par dheere-dheere ghoomiye</b>. Haath ghuma ke phone ko gol-gol mat ghumaiye. Lights on rakhiye.</li>
+      </ol>
+      <div class="k">Property ka naam</div>
+      <input type="text" id="cTitle" maxlength="60" placeholder="Jaise: 2BHK, Vaishali Nagar">
+      <div class="row"><button class="btn primary wide" id="cGo">Camera chalu karo</button></div>
+      <div class="row" style="margin-top:10px"><button class="btn wide" id="cBack">Wapas</button></div>
+      <p id="cErr" class="warn" hidden></p>`, true);
+    p.querySelector('#cBack').onclick = () => { this.destroy(); if (window.GhoomoApp) window.GhoomoApp.goHome(); };
+    p.querySelector('#cGo').onclick = async () => {
+      this.title = (p.querySelector('#cTitle').value || '').trim() || 'My property';
+      const err = p.querySelector('#cErr'); err.hidden = true;
+      try {
+        if (!this.sim && typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const r = await DeviceOrientationEvent.requestPermission(); if (r !== 'granted') throw new Error('Motion sensor ki permission chahiye. Settings → Safari → Motion & Orientation Access on kariye.');
+        }
+        this.cam = this.sim ? await openSimCamera((window.DEMO_TOUR ? window.DEMO_TOUR.base : 'demo/') + (this.simRoom || 'living') + '_eq.jpg') : await openCamera();
+        this.root.insertBefore(this.cam.el, this.root.firstChild);
+        try { if (navigator.wakeLock) this.wake = await navigator.wakeLock.request('screen'); } catch (e) {}
+        await sleep(1200);
+        if (!this.orient) throw new Error('Is device mein motion sensor nahi mila. Yeh mode phone par chalta hai: yahi link phone mein kholiye.');
+        this.running = true; this.loop();
+        this.roomStart();
+      } catch (e) {
+        err.textContent = (e && e.name === 'NotAllowedError') ? 'Camera ki permission nahi mili. Browser settings mein is site ko camera allow kariye.' : (e && e.message) || 'Camera nahi khul paya.';
+        err.hidden = false; if (this.cam) { this.cam.stop(); this.cam = null; }
+      }
+    };
+  }
+  /* ---- per room: from where, which room, which way is in ---- */
+  roomStart() {
+    this.mode = 'idle';
+    const n = this.rooms.length;
+    const suggest = NAME_SUGGEST.find(x => !this.rooms.some(r => r.name === x)) || ('Room ' + (n + 1));
+    this.pending = { name: suggest, parent: n ? n - 1 : -1 };
+    const p = this.panel(`
+      <div class="k">Room ${n + 1}</div>
+      ${n ? `<h2>Kis room se aa rahe ho?</h2><div class="chips" id="cFrom"></div>` : ''}
+      <h2>Yeh kaunsi jagah hai?</h2>
+      <div class="chips" id="cName"></div>
+      <input type="text" id="cOther" maxlength="40" placeholder="Ya naam likhiye">
+      <button class="btn primary wide" id="cNext">Aage</button>
+      ${n ? `<div class="row" style="margin-top:10px"><button class="btn wide" id="cDone">Bas, tour taiyaar karo (${n} room)</button></div>` : ''}`);
+    if (n) {
+      const names = this.rooms.map(r => r.name);
+      this.chips(p.querySelector('#cFrom'), names, names[n - 1], v => { this.pending.parent = names.lastIndexOf(v); });
+      p.querySelector('#cDone').onclick = () => this.finish();
+    }
+    const list = [...new Set([suggest, ...(window.GhoomoApp ? window.GhoomoApp.ROOM_CHIPS : NAME_SUGGEST)])];
+    this.chips(p.querySelector('#cName'), list, suggest, v => { this.pending.name = v; p.querySelector('#cOther').value = ''; });
+    p.querySelector('#cOther').addEventListener('input', e => { const v = e.target.value.trim(); if (v) { this.pending.name = v; p.querySelectorAll('#cName button').forEach(x => x.setAttribute('aria-pressed', 'false')); } });
+    p.querySelector('#cNext').onclick = () => this.doorStep();
+  }
+  doorStep() {
+    const n = this.rooms.length, nm = this.pending.name;
+    this.clearPanel();
+    this.hud(n ? `${esc(nm)} ke darwaze par khade hoiye` : 'Property ke entrance par khade hoiye',
+      n ? 'Room ke andar ki taraf phone kariye, phir neeche button dabaiye' : 'Andar ki taraf phone kariye, phir button dabaiye',
+      `<button class="btn primary" id="cHere">${n ? 'Andar ki taraf dekh raha hoon' : 'Andar ki taraf dekh raha hoon'}</button>`);
+    this.root.querySelector('#cHere').onclick = () => {
+      this.pending.heading = yawOf(this.B.f);
+      this.hud(`${esc(nm)} ke beech mein jaiye`, 'Room ke beech mein khade hokar ruk jaiye. Wahan se hilna nahi hai.', `<button class="btn primary" id="cMid">Beech mein hoon, shuru karo</button>`);
+      this.root.querySelector('#cMid').onclick = () => this.startShots();
+    };
+  }
+  hud(title, sub, buttons) {
+    let top = this.root.querySelector('.top'); if (top) top.remove();
+    let bar = this.root.querySelector('.bar'); if (bar) bar.remove();
+    top = h(`<div class="top"><div class="tt"><b></b><span></span></div><button class="ibtn" id="cX" aria-label="Band karo"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`);
+    top.querySelector('b').innerHTML = title; top.querySelector('span').innerHTML = sub;
+    top.querySelector('#cX').onclick = () => this.confirmQuit();
+    bar = h(`<div class="bar"><div class="row">${buttons || ''}</div></div>`);
+    this.root.appendChild(top); this.root.appendChild(bar);
+  }
+  confirmQuit() {
+    const p = this.panel(`<h2>Capture band karein?</h2><p>${this.rooms.length ? `${this.rooms.length} room taiyaar hain. Unse tour bana sakte hain.` : 'Abhi tak koi room poora nahi hua.'}</p>
+      ${this.rooms.length ? '<button class="btn primary wide" id="qMake">Jitne rooms hue, unka tour banao</button><div style="height:10px"></div>' : ''}
+      <button class="btn wide" id="qStay">Capture jaari rakho</button><div style="height:10px"></div><button class="btn wide danger" id="qQuit">Sab chhod ke bahar jao</button>`);
+    p.querySelector('#qStay').onclick = () => this.clearPanel();
+    p.querySelector('#qQuit').onclick = () => { this.destroy(); if (window.GhoomoApp) window.GhoomoApp.goHome(); };
+    const mk = p.querySelector('#qMake'); if (mk) mk.onclick = () => this.finish();
+  }
+  /* ---- the dots ---- */
+  startShots() {
+    this.targets = makeTargets().map(t => Object.assign({}, t, { yaw: t.yaw + this.pending.heading, done: false }));
+    this.shots = []; this.idx = 0; this.hold = 0; this.mode = 'shoot';
+    this.hud(esc(this.pending.name), '', `<button class="btn small" id="cUndo">Pichli photo dobara</button><button class="btn small" id="cSkip" hidden>Yeh hissa chhodo</button>`);
+    const bar = this.root.querySelector('.bar');
+    bar.insertBefore(h(`<div class="prog"><i></i></div>`), bar.firstChild);
+    bar.insertBefore(h(`<div class="tip"></div>`), bar.firstChild);
+    this.root.querySelector('#cUndo').onclick = () => this.undo();
+    this.root.querySelector('#cSkip').onclick = () => { this.targets[this.idx].done = true; this.targets[this.idx].skipped = true; this.advance(); };
+    this.updateHud();
+  }
+  updateHud() {
+    const t = this.targets[this.idx]; if (!t) return;
+    const tip = this.root.querySelector('.tip'), pr = this.root.querySelector('.prog i');
+    const done = this.targets.filter(x => x.done).length;
+    tip.innerHTML = `${RING_TIP[t.ring][0]}<small>${RING_TIP[t.ring][1]} · ${done}/${this.targets.length}</small>`;
+    pr.style.width = (100 * done / this.targets.length) + '%';
+    this.root.querySelector('.top span').textContent = ['Chaaron taraf', 'Upar', 'Neeche', 'Chhat', 'Farsh'][t.ring];
+    const sk = this.root.querySelector('#cSkip'); if (sk) sk.hidden = t.ring < 3;
+    const un = this.root.querySelector('#cUndo'); if (un) un.disabled = !this.shots.length;
+  }
+  undo() {
+    if (!this.shots.length) return;
+    const last = this.shots.pop(); const t = this.targets[last.ti]; t.done = false; this.idx = last.ti; this.hold = 0; this.updateHud();
+  }
+  advance() {
+    while (this.idx < this.targets.length && this.targets[this.idx].done) this.idx++;
+    if (this.idx >= this.targets.length) { this.mode = 'idle'; this.process(); return; }
+    this.hold = 0; this.updateHud();
+  }
+  async shoot() {
+    const t = this.targets[this.idx]; this.mode = 'busy';
+    const src = this.cam, w = src.w, hh = src.h;
+    const c = document.createElement('canvas'); c.width = w; c.height = hh;
+    const B = this.B;
+    c.getContext('2d').drawImage(src.el, 0, 0, w, hh);
+    this.flashEl.classList.add('on'); requestAnimationFrame(() => this.flashEl.classList.remove('on'));
+    try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
+    this.shots.push({ blob, B: { r: B.r.slice(), u: B.u.slice(), f: B.f.slice() }, ti: this.idx });
+    t.done = true; this.mode = 'shoot'; this.advance();
+  }
+  /* ---- per-frame: sensor -> camera direction, guidance, auto shutter ---- */
+  loop() {
+    const ctx = this.ov.getContext('2d');
+    let prevF = null, prevT = performance.now(), speed = 0;
+    const step = () => {
+      if (!this.running) return;
+      requestAnimationFrame(step);
+      const now = performance.now(), dt = Math.max(1, now - prevT); prevT = now;
+      if (!this.orient) return;
+      this.B = basisFromEuler(this.orient.a, this.orient.b, this.orient.g);
+      if (this.cam && this.cam.sim) this.cam.render(this.B);
+      const f = this.B.f;
+      if (prevF) { const ang = Math.acos(clamp(dot(prevF, f), -1, 1)) / DEG; speed = speed * 0.7 + 0.3 * (ang / dt * 1000); }
+      prevF = f;
+      const tilted = !this.sim && screen.orientation && screen.orientation.angle && screen.orientation.angle % 180 !== 0;
+      let tiltEl = this.root.querySelector('.tilt');
+      if (tilted && !tiltEl) { tiltEl = h(`<div class="tilt">Phone seedha (portrait) pakadiye</div>`); this.root.appendChild(tiltEl); }
+      if (!tilted && tiltEl) tiltEl.remove();
+      // overlay
+      const cw = this.ov.clientWidth, ch = this.ov.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+      if (this.ov.width !== Math.round(cw * dpr)) { this.ov.width = Math.round(cw * dpr); this.ov.height = Math.round(ch * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, cw, ch);
+      if (this.mode !== 'shoot' && this.mode !== 'busy') return;
+      const vw = this.cam.w || 9, vh = this.cam.h || 16, long = Math.max(vw, vh), tl = Math.tan(ASSUMED_FOV / 2 * DEG);
+      const tx = tl * vw / long, ty = tl * vh / long;
+      const sc = Math.max(cw / vw, ch / vh), dw = vw * sc, dh = vh * sc;            // object-fit: cover
+      const proj = d => { const z = dot(d, f); if (z <= 0.05) return null; return [cw / 2 + dot(d, this.B.r) / (z * tx) * dw / 2, ch / 2 - dot(d, this.B.u) / (z * ty) * dh / 2]; };
+      const cx = cw / 2, cy = ch / 2;
+      for (const t of this.targets) {
+        if (t === this.targets[this.idx]) continue;
+        const p = proj(dirOf(t.yaw, t.pitch)); if (!p) continue;
+        ctx.beginPath(); ctx.arc(p[0], p[1], t.done ? 7 : 5, 0, Math.PI * 2);
+        ctx.fillStyle = t.done ? (t.skipped ? 'rgba(255,255,255,.25)' : 'rgba(127,211,160,.95)') : 'rgba(255,255,255,.55)'; ctx.fill();
+      }
+      // the circle to aim with
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(cx, cy, 34, 0, Math.PI * 2); ctx.stroke();
+      const t = this.targets[this.idx]; if (!t) return;
+      const td = dirOf(t.yaw, t.pitch), off = Math.acos(clamp(dot(td, f), -1, 1)) / DEG;
+      const p = proj(td);
+      const onScreen = p && p[0] > 20 && p[0] < cw - 20 && p[1] > 90 && p[1] < ch - 150;
+      if (onScreen) {
+        const pulse = 1 + 0.12 * Math.sin(now / 180);
+        ctx.beginPath(); ctx.arc(p[0], p[1], 15 * pulse, 0, Math.PI * 2); ctx.fillStyle = '#f2a93b'; ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+      } else {
+        // arrow at the edge pointing the way to turn
+        let ax = dot(td, this.B.r), ay = -dot(td, this.B.u); const l = Math.hypot(ax, ay) || 1; ax /= l; ay /= l;
+        const R = Math.min(cw, ch) * 0.36, px = cx + ax * R, py = cy + ay * R, ang = Math.atan2(ay, ax);
+        ctx.save(); ctx.translate(px, py); ctx.rotate(ang); ctx.fillStyle = '#f2a93b';
+        ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(-10, -16); ctx.lineTo(-4, 0); ctx.lineTo(-10, 16); ctx.closePath(); ctx.fill(); ctx.restore();
+      }
+      // auto shutter: aimed within 3°, held steady
+      const aimed = off < 3.2 && speed < 14;
+      this.hold = aimed ? this.hold + dt : Math.max(0, this.hold - dt * 2);
+      if (this.hold > 0) {
+        ctx.lineWidth = 6; ctx.strokeStyle = '#7fd3a0'; ctx.beginPath(); ctx.arc(cx, cy, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, this.hold / 380)); ctx.stroke();
+      }
+      if (this.mode === 'shoot' && this.hold >= 380) { this.hold = 0; this.shoot(); }
+      if (speed > 45 && this.mode === 'shoot') { const tip = this.root.querySelector('.tip small'); if (tip && !tip.dataset.slow) { tip.dataset.slow = '1'; tip.textContent = 'Thoda dheere ghumaiye'; setTimeout(() => { delete tip.dataset.slow; this.updateHud(); }, 1400); } }
+    };
+    requestAnimationFrame(step);
+  }
+  /* ---- after the last dot: stitch, enhance, check ---- */
+  async process() {
+    const top = this.root.querySelector('.top'); if (top) top.remove();
+    const bar = this.root.querySelector('.bar'); if (bar) bar.remove();
+    const p = this.panel(`<div class="center"><div class="spin"></div><h2>${esc(this.pending.name)} ka 360° bana rahe hain…</h2><p>Photos jod rahe hain aur roshni-rang theek kar rahe hain.</p><div class="prog" style="width:100%"><i></i></div></div>`);
+    const bar2 = p.querySelector('.prog i');
+    try {
+      const res = await stitchRoom(this.shots, { onProgress: v => { bar2.style.width = Math.round(v * 100) + '%'; } });
+      const url = URL.createObjectURL(res.blob);
+      const pend = this.pending;
+      const room = { name: pend.name, parent: pend.parent, heading: pend.heading, blob: res.blob, url, quality: res.quality, fov: res.fov };
+      const skipped = this.targets.filter(t => t.skipped).length;
+      const low = res.quality < 0.55;
+      const q = this.panel(`<div class="k">${esc(room.name)} taiyaar</div><h2>Yeh raha 360° photo</h2>
+        <img class="pv" alt="Stitched 360 degree photo of ${esc(room.name)}">
+        ${low ? '<div class="warn">Kuch photos theek se nahi jud paayi. Shayad phone ghumate waqt aap jagah se hil gaye, ya room mein bahut kam roshni thi. Ek baar dobara lena behtar rahega.</div>' : ''}
+        ${skipped ? `<div class="warn">${skipped === 2 ? 'Chhat aur farsh' : 'Ek hissa'} chhoda gaya. Wahan halka dhundhla bhar diya gaya hai.</div>` : ''}
+        <button class="btn primary wide" id="qOk">Achha hai, agla room</button><div style="height:10px"></div>
+        <button class="btn wide" id="qFin">Achha hai, tour taiyaar karo</button><div style="height:10px"></div>
+        <button class="btn wide" id="qRe">Dobara lo</button>`);
+      q.querySelector('img').src = url;
+      q.querySelector('#qOk').onclick = () => { this.rooms.push(room); this.roomStart(); };
+      q.querySelector('#qFin').onclick = () => { this.rooms.push(room); this.finish(); };
+      q.querySelector('#qRe').onclick = () => { URL.revokeObjectURL(url); this.clearPanel(); this.startShots(); };
+      window.__capLast = res;
+    } catch (e) {
+      console.error(e);
+      const q = this.panel(`<h2>360° nahi ban paya</h2><p class="warn"></p><button class="btn primary wide" id="qRe">Dobara lo</button>`);
+      q.querySelector('.warn').textContent = (e && e.message) || 'Kuch gadbad hui.';
+      q.querySelector('#qRe').onclick = () => { this.clearPanel(); this.startShots(); };
+    }
+  }
+  async finish() {
+    if (!this.rooms.length) return;
+    const rooms = this.rooms.map((r, i) => ({ name: r.name, file: new File([r.blob], r.name.replace(/[^\w\- ]+/g, '') + '.jpg', { type: 'image/jpeg' }), startYaw: r.heading, links: [] }));
+    this.rooms.forEach((r, i) => {
+      if (r.parent < 0 || !rooms[r.parent]) return;
+      // walking from the parent room into this one points along the door direction recorded at its doorway
+      rooms[r.parent].links.push({ to: i, yaw: r.heading, arriveYaw: r.heading });
+      rooms[i].links.push({ to: r.parent, yaw: r.heading + 180, arriveYaw: r.heading + 180 });
+    });
+    const title = this.title;
+    this.destroy();
+    if (window.GhoomoApp) await window.GhoomoApp.importCaptured(title, rooms);
+  }
+}
+
+window.GhoomoCapture = {
+  open(opts = {}) { if (window.__cap) window.__cap.destroy(); const c = new Capture(opts); window.__cap = c; if (opts.simRoom) c.simRoom = opts.simRoom; c.mount(); return c; },
+  stitchRoom, basisFromEuler, makeTargets, _sim: openSimCamera, _turn: turn, _dirOf: dirOf,
+};
+if (window.__wantCapture) window.GhoomoCapture.open(window.__wantCapture);
 })();
 </script>
 </body>
