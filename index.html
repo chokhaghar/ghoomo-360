@@ -2083,7 +2083,7 @@ function makeAligner(shots) {
   const pairs = [];
   for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) if (dot(shots[i].B.f, shots[j].B.f) > Math.cos(70 * DEG)) pairs.push([i, j]);
   // sample grid inside each image (normalised coords) and its gray values
-  const GX = 14, GY = 22;
+  const GX = 18, GY = 30;
   for (const s of shots) {
     s.pts = [];
     for (let a = 0; a < GY; a++) for (let b = 0; b < GX; b++) {
@@ -2126,8 +2126,9 @@ function makeAligner(shots) {
 
 async function alignShots(shots, onProg) {
   for (let i = 0; i < shots.length; i++) {
-    shots[i].lo = await lowRes(shots[i].blob, 112);
+    shots[i].lo = await lowRes(shots[i].blob, 176);
     const L = shots[i].lo, long = Math.max(L.w, L.h);
+    if (!shots[i].pw) { shots[i].pw = L.w; shots[i].ph = L.h; }
     shots[i].ax = L.w / long; shots[i].ay = L.h / long;     // tan-scale per axis relative to the long side
     if (onProg) onProg(0.05 + 0.15 * i / shots.length);
     if (i % 4 === 3) await frame();
@@ -2155,7 +2156,7 @@ async function alignShots(shots, onProg) {
   };
   await refine(tOf(bestF), [2, 1, 0.5], 2, 0.28, 0.5);
   for (let f = bestF - 2; f <= bestF + 2; f += 0.5) { const c = A.cost(tOf(f)); if (c < bestC) { bestC = c; bestF = f; } }
-  await refine(tOf(bestF), [0.5, 0.25], 1, 0.5, 0.6);
+  await refine(tOf(bestF), [0.5, 0.25, 0.12], 2, 0.5, 0.6);
   const tl = tOf(bestF);
   // 3) brightness: one gain per photo so overlaps match
   const N = shots.length, g = new Float64Array(N).fill(1); const terms = [];
@@ -2175,9 +2176,26 @@ async function alignShots(shots, onProg) {
 /* ---- GPU blend into an equirectangular image ---- */
 const VS = `#version 300 es
 in vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
+/* Pass 1 (FS_WMAX): for every output pixel, how central the best photo is there.
+   Pass 2 (FS_ACC): each photo only paints where it is (nearly) the most central one, so photos meet
+   along a narrow seam instead of being averaged over wide areas - that averaging is what made
+   nearby objects appear twice. */
+const FS_WMAX = `#version 300 es
+precision highp float;
+uniform vec3 uR, uU, uF; uniform vec2 uT; uniform vec2 uOut;
+out vec4 o;
+void main(){
+  vec2 uv = gl_FragCoord.xy / uOut;
+  float lon = (uv.x - 0.5) * 6.2831853, lat = (0.5 - uv.y) * 3.1415927;
+  vec3 d = vec3(cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon));
+  float z = dot(d, uF); if (z <= 0.02) discard;
+  float x = dot(d, uR) / (z * uT.x), y = dot(d, uU) / (z * uT.y);
+  if (abs(x) > 1.0 || abs(y) > 1.0) discard;
+  o = vec4(max((1.0 - x * x) * (1.0 - y * y), 0.0), 0.0, 0.0, 1.0);
+}`;
 const FS_ACC = `#version 300 es
 precision highp float;
-uniform sampler2D uImg; uniform vec3 uR, uU, uF; uniform vec2 uT; uniform vec2 uOut; uniform float uGain, uWs;
+uniform sampler2D uImg; uniform sampler2D uMax; uniform vec3 uR, uU, uF; uniform vec2 uT; uniform vec2 uOut; uniform float uGain, uWs;
 out vec4 o;
 void main(){
   vec2 uv = gl_FragCoord.xy / uOut;           // v = 0 at the top row of the final image
@@ -2186,7 +2204,10 @@ void main(){
   float z = dot(d, uF); if (z <= 0.02) discard;
   float x = dot(d, uR) / (z * uT.x), y = dot(d, uU) / (z * uT.y);
   if (abs(x) > 1.0 || abs(y) > 1.0) discard;
-  float w = pow(max((1.0 - x * x) * (1.0 - y * y), 0.0), 2.5) + 1e-4;
+  float w0 = max((1.0 - x * x) * (1.0 - y * y), 0.0);
+  float m = texelFetch(uMax, ivec2(gl_FragCoord.xy), 0).r;
+  float w = clamp((w0 - 0.86 * m) / (0.14 * m + 1e-4), 0.0, 1.0);
+  w = w * w * (3.0 - 2.0 * w) + 1e-5;
   vec3 c = texture(uImg, vec2(0.5 + 0.5 * x, 0.5 - 0.5 * y)).rgb;
   o = vec4(c * uGain * w, w) * uWs;
 }`;
@@ -2253,7 +2274,7 @@ async function stitchRoom(shots, opts = {}) {
   gl.getExtension('OES_texture_float_linear');
   const maxT = gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const OW = Math.min(opts.width || 4096, maxT), OH = OW / 2;
-  const P1 = glProgram(gl, FS_ACC), P2 = glProgram(gl, FS_FIN);
+  const P1 = glProgram(gl, FS_ACC), P2 = glProgram(gl, FS_FIN), P0 = glProgram(gl, FS_WMAX);
   const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   const acc = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, acc);
@@ -2261,9 +2282,22 @@ async function stitchRoom(shots, opts = {}) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, acc, 0);
+  // pass 1: best centrality per pixel (geometry only, no photo needed)
+  const wmax = gl.createTexture(); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, wmax); gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, OW, OH);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  const fbw = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fbw); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, wmax, 0);
   gl.viewport(0, 0, OW, OH); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
-  gl.useProgram(P1.p); gl.uniform2f(P1.u.uOut, OW, OH); gl.uniform1i(P1.u.uImg, 0); gl.uniform1f(P1.u.uWs, floatOk ? 1 : 0.25);
+  gl.enable(gl.BLEND); gl.blendEquation(gl.MAX); gl.useProgram(P0.p); gl.uniform2f(P0.u.uOut, OW, OH);
+  for (const s of shots) {
+    const long = Math.max(s.pw, s.ph);
+    gl.uniform3fv(P0.u.uR, s.B.r); gl.uniform3fv(P0.u.uU, s.B.u); gl.uniform3fv(P0.u.uF, s.B.f);
+    gl.uniform2f(P0.u.uT, al.tl * s.pw / long, al.tl * s.ph / long); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  gl.blendEquation(gl.FUNC_ADD);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.viewport(0, 0, OW, OH); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.blendFunc(gl.ONE, gl.ONE);
+  gl.useProgram(P1.p); gl.uniform2f(P1.u.uOut, OW, OH); gl.uniform1i(P1.u.uImg, 0); gl.uniform1i(P1.u.uMax, 1); gl.uniform1f(P1.u.uWs, floatOk ? 1 : 0.5);
   const img = gl.createTexture();
   for (let i = 0; i < shots.length; i++) {
     const s = shots[i];
@@ -2327,7 +2361,7 @@ async function stitchRoom(shots, opts = {}) {
 /* ===================================================================== camera sources */
 async function openCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Is browser mein camera nahi khul sakta. Chrome ya Safari mein kholiye.');
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1440 } } });
   const v = document.createElement('video'); v.playsInline = true; v.muted = true; v.setAttribute('playsinline', ''); v.srcObject = stream;
   await v.play();
   const track = stream.getVideoTracks()[0];
@@ -2399,6 +2433,7 @@ class Capture {
         <li>Har room ke <b>beech mein</b> khade hoiye. Phone <b>seedha (portrait)</b> pakadiye.</li>
         <li>Screen par ek <b>dot</b> aayega. Use beech ke <b>gol ghere</b> mein laaiye: photo apne aap khinch jayegi.</li>
         <li>Pehle chaaron taraf, phir upar chhat, phir neeche farsh. Lagbhag 30 photos, 1–2 minute.</li>
+        <li>Mez, kursi jaisi cheezon se <b>kam se kam 1.5 meter door</b> khade hoiye. Bahut paas ki cheezein theek se nahi judti.</li>
         <li>Phone ko <b>aankhon ke saamne ek hi jagah</b> rakhiye aur <b>apne pairon par dheere-dheere ghoomiye</b>. Haath ghuma ke phone ko gol-gol mat ghumaiye. Lights on rakhiye.</li>
       </ol>
       <div class="k">Property ka naam</div>
@@ -2514,13 +2549,23 @@ class Capture {
   async shoot() {
     const t = this.targets[this.idx]; this.mode = 'busy';
     const src = this.cam, w = src.w, hh = src.h;
-    const c = document.createElement('canvas'); c.width = w; c.height = hh;
-    const B = this.B;
-    c.getContext('2d').drawImage(src.el, 0, 0, w, hh);
+    // grab three frames a moment apart and keep the sharpest (least motion blur)
+    let best = null;
+    for (let k = 0; k < 3; k++) {
+      if (k) await sleep(60);
+      const cc = document.createElement('canvas'); cc.width = w; cc.height = hh;
+      const g2 = cc.getContext('2d', { willReadFrequently: true }); g2.drawImage(src.el, 0, 0, w, hh);
+      const sw = Math.min(320, w), sh = Math.round(sw * hh / w), x0 = (w - sw) >> 1, y0 = (hh - sh) >> 1;
+      const d = g2.getImageData(x0, y0, sw, sh).data; let e = 0;
+      for (let y = 1; y < sh - 1; y += 2) for (let x = 1; x < sw - 1; x += 2) { const i = (y * sw + x) * 4; const gx = d[i + 4] - d[i - 4], gy = d[i + sw * 4] - d[i - sw * 4]; e += gx * gx + gy * gy; }
+      const B0 = this.B;
+      if (!best || e > best.e) best = { c: cc, e, B: B0 };
+    }
+    const c = best.c, B = best.B;
     this.flashEl.classList.add('on'); requestAnimationFrame(() => this.flashEl.classList.remove('on'));
     try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
     const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.92));
-    this.shots.push({ blob, B: { r: B.r.slice(), u: B.u.slice(), f: B.f.slice() }, ti: this.idx });
+    this.shots.push({ blob, B: { r: B.r.slice(), u: B.u.slice(), f: B.f.slice() }, ti: this.idx, pw: w, ph: hh });
     t.done = true; this.mode = 'shoot'; this.advance();
   }
   /* ---- per-frame: sensor -> camera direction, guidance, auto shutter ---- */
@@ -2575,12 +2620,13 @@ class Capture {
         ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(-10, -16); ctx.lineTo(-4, 0); ctx.lineTo(-10, 16); ctx.closePath(); ctx.fill(); ctx.restore();
       }
       // auto shutter: aimed within 3°, held steady
-      const aimed = off < 3.2 && speed < 14;
+      const aimed = off < 3 && speed < 5;
       this.hold = aimed ? this.hold + dt : Math.max(0, this.hold - dt * 2);
       if (this.hold > 0) {
-        ctx.lineWidth = 6; ctx.strokeStyle = '#7fd3a0'; ctx.beginPath(); ctx.arc(cx, cy, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, this.hold / 380)); ctx.stroke();
+        ctx.lineWidth = 6; ctx.strokeStyle = '#7fd3a0'; ctx.beginPath(); ctx.arc(cx, cy, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, this.hold / 450)); ctx.stroke();
       }
-      if (this.mode === 'shoot' && this.hold >= 380) { this.hold = 0; this.shoot(); }
+      if (this.mode === 'shoot' && this.hold >= 450) { this.hold = 0; this.shoot(); }
+      if (this.mode === 'shoot' && off < 3 && speed >= 5 && speed < 45) { const tip = this.root.querySelector('.tip small'); if (tip && !tip.dataset.slow) { tip.dataset.slow = '1'; tip.textContent = 'Phone ko ek pal bilkul sthir rakhiye'; setTimeout(() => { delete tip.dataset.slow; this.updateHud(); }, 1200); } }
       if (speed > 45 && this.mode === 'shoot') { const tip = this.root.querySelector('.tip small'); if (tip && !tip.dataset.slow) { tip.dataset.slow = '1'; tip.textContent = 'Thoda dheere ghumaiye'; setTimeout(() => { delete tip.dataset.slow; this.updateHud(); }, 1400); } }
     };
     requestAnimationFrame(step);
@@ -2604,11 +2650,20 @@ class Capture {
         ${skipped ? `<div class="warn">${skipped === 2 ? 'Chhat aur farsh' : 'Ek hissa'} chhoda gaya. Wahan halka dhundhla bhar diya gaya hai.</div>` : ''}
         <button class="btn primary wide" id="qOk">Achha hai, agla room</button><div style="height:10px"></div>
         <button class="btn wide" id="qFin">Achha hai, tour taiyaar karo</button><div style="height:10px"></div>
-        <button class="btn wide" id="qRe">Dobara lo</button>`);
+        <button class="btn wide" id="qRe">Dobara lo</button>
+        <div class="row" style="margin-top:12px"><button class="linkbtn" id="qDbg" type="button">Kachchi photos download karo (jaanch ke liye)</button></div>`);
       q.querySelector('img').src = url;
       q.querySelector('#qOk').onclick = () => { this.rooms.push(room); this.roomStart(); };
       q.querySelector('#qFin').onclick = () => { this.rooms.push(room); this.finish(); };
       q.querySelector('#qRe').onclick = () => { URL.revokeObjectURL(url); this.clearPanel(); this.startShots(); };
+      const shotsCopy = this.shots.slice();
+      q.querySelector('#qDbg').onclick = async () => {
+        const toUrl = b => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+        const data = { v: 1, ua: navigator.userAgent, fov: res.fov, quality: res.quality, shots: [] };
+        for (const sh of shotsCopy) data.shots.push({ B: sh.B, w: sh.pw, h: sh.ph, img: await toUrl(sh.blob) });
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (room.name || 'room').replace(/\W+/g, '-') + '-raw-photos.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+      };
       window.__capLast = res;
     } catch (e) {
       console.error(e);
