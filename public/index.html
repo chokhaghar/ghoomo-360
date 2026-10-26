@@ -2,30 +2,31 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<base href="/">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Ghoomo 360 — Ghar baithe, poora ghar ghoomo</title>
 <meta name="description" content="Upload property photos, link the rooms, and let buyers walk through every room in 360° from their phone. Made for builders and brokers.">
 <meta name="theme-color" content="#0c0e11">
-<link rel="canonical" href="https://chokhaghar.github.io/ghoomo-360/">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Ghoomo 360">
 <meta property="og:title" content="Ghoomo 360 — Ghar baithe, poora ghar ghoomo">
 <meta property="og:description" content="Upload property photos, link the rooms, and let buyers walk through every room in 360° from their phone. Made for builders and brokers.">
-<meta property="og:url" content="https://chokhaghar.github.io/ghoomo-360/">
-<meta property="og:image" content="https://chokhaghar.github.io/ghoomo-360/og.jpg">
+<meta property="og:url" content="https://ghoomo-360.pages.dev/">
+<meta property="og:image" content="https://ghoomo-360.pages.dev/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A bright living room with a balcony, shown in the Ghoomo 360 viewer">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Ghoomo 360 — Ghar baithe, poora ghar ghoomo">
 <meta name="twitter:description" content="Upload property photos, link the rooms, and let buyers walk through every room in 360° from their phone. Made for builders and brokers.">
-<meta name="twitter:image" content="https://chokhaghar.github.io/ghoomo-360/og.jpg">
+<meta name="twitter:image" content="https://ghoomo-360.pages.dev/og.jpg">
 <style>[hidden]{display:none!important}img{max-width:100%}</style>
+<script src="/api/config"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -93,6 +94,7 @@ button{font:inherit;color:inherit}
 .welcome,.plan,.sheet,.toast,.roompill,.banner,.titlecard,.builder{box-sizing:border-box}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 18px;border-radius:999px;border:1px solid var(--line-2);background:rgba(255,255,255,.06);
   font-weight:600;font-size:14px;cursor:pointer;transition:background .15s ease, border-color .15s ease, transform .15s ease;white-space:nowrap;text-decoration:none}
+a.btn{color:var(--text)}
 .btn:hover{background:rgba(255,255,255,.12)}
 .btn:active{transform:translateY(1px)}
 .btn:focus-visible,.ibtn:focus-visible,.chip:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -771,7 +773,8 @@ class Pano {
     return this._track(s, 'loadingLo', (async () => {
       const src = s.src || {};
       let blob, proj = s.proj || { type: 0, lonMin: -Math.PI, lonMax: Math.PI, latMin: -Math.PI / 2, latMax: Math.PI / 2 };
-      if (src.faces) { if (!src.preview) return s; const r = await fetch(src.preview); if (!r.ok) throw new Error('This room could not be loaded.'); blob = await r.blob(); }
+      if (src.preview) { const r = await fetch(src.preview); if (!r.ok) throw new Error('This room could not be loaded.'); blob = await r.blob(); }
+      else if (src.faces) return s;
       else if (src.blob || src.url) blob = src.blob || await (await fetch(src.url)).blob();
       else return s;
       const d = await decodeBlob(blob, 1600);
@@ -1371,6 +1374,7 @@ function goHome() {
   $('#hStart').onclick = () => startDemoTour();
   $('#hCreate').onclick = () => openBuilder();
   $('#hCapture').onclick = () => openCapture();
+  if (window.GhoomoCloud) window.GhoomoCloud.onHome();
 }
 function openCapture(opts) {
   location.hash = 'capture';
@@ -1541,6 +1545,7 @@ class Builder {
     drop.addEventListener('drop', e => { const fs = [...(e.dataTransfer && e.dataTransfer.files || [])].filter(f => /^image\//.test(f.type)); if (fs.length) this.addFiles(fs); });
     $('#bSample').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); this.loadSamples(); });
     $('#bCam').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openCapture(); });
+    if (window.GhoomoCloud) window.GhoomoCloud.onBuilder(this);
     this.renderList(); this.renderTools();
   }
   steps() {
@@ -1559,7 +1564,7 @@ class Builder {
         <div class="rmeta"><input aria-label="Room name" maxlength="40"><div class="badges"></div>${s.ready ? '' : '<div class="prog"><i></i></div>'}</div>
         <div class="acts"><button class="mini" data-a="up" aria-label="Move up">${icon('i-up')}</button><button class="mini" data-a="del" aria-label="Remove room">${icon('i-trash')}</button></div>
       </div>`);
-      if (s.thumb) card.querySelector('img').src = s.thumb;
+      card.querySelector('img').src = s.thumb || BLANK_IMG;     // a dark block, never a broken-image icon, while a photo is prepared
       const inp = card.querySelector('input'); inp.value = s.name;
       inp.addEventListener('click', e => e.stopPropagation());
       inp.addEventListener('input', () => { s.name = inp.value || 'Room'; this.syncNames(); this.saveDraft(); });
@@ -1715,6 +1720,30 @@ class Builder {
     this.sel = items[0].id; this.syncPano(true); this.saveDraft();
     toast(`${items.length} room${items.length > 1 ? 's' : ''} jud gaye. "Preview tour" dabaiye.`, 4000);
   }
+  /* start an empty tour (replaces the draft) */
+  resetTour() {
+    this.cancelPlace(); this.closePop();
+    this.tour = { id: 'mine', title: 'My property', subtitle: '', scenes: [] };
+    this.sel = null; this.restored = true; this._fresh = true;     // an old draft must not come back over this
+    const t = $('#bTitle'); if (t) t.value = this.tour.title;
+    this.syncPano(true); this.saveDraft();
+  }
+  /* rooms saved earlier (e.g. in the cloud): names, views, lens and arrows are already known */
+  async loadRooms(meta, list) {
+    this.resetTour();
+    Object.assign(this.tour, { title: meta.title || 'My property', cloudId: meta.cloudId || null, slug: meta.slug || null });
+    const t = $('#bTitle'); if (t) t.value = this.tour.title;
+    const items = list.map(r => { const s = { id: r.id, name: r.name, fileName: r.file.name, file: r.file, thumb: r.thumbUrl || '', ready: false, hotspots: [], startYaw: r.startYaw || 0, startPitch: r.startPitch || 0, noAuto: !!r.noAuto }; this.tour.scenes.push(s); return s; });
+    this.renderList();
+    for (let k = 0; k < items.length; k++) {
+      const s = items[k], r = list[k];
+      try { await this.process(s); } catch (e) { console.error(e); s.error = (e && e.message) || 'This file could not be opened.'; }
+      if (s.ready) { if (r.kind) s.kind = r.kind; if (r.proj) s.proj = r.proj; if (r.coverage) s.coverage = r.coverage; if (r.lens) s.lens = r.lens; s.remote = r.remote || null; }
+      this.renderList();
+    }
+    items.forEach((s, k) => { s.hotspots = (list[k].hotspots || []).filter(hs => !hs.auto && items.some(o => o.id === hs.to)).map(hs => Object.assign({}, hs)); });
+    this.sel = items.length ? items[0].id : null; this.syncPano(true); this.saveDraft();
+  }
   removeRoom(id) {
     const s = this.tour.scenes.find(x => x.id === id); if (!s) return;
     this.tour.scenes = this.tour.scenes.filter(x => x.id !== id);
@@ -1865,7 +1894,7 @@ class Builder {
     this._saveT = setTimeout(async () => {
       const db = await this.openDB(); if (!db) return;
       try {
-        const data = { title: this.tour.title, scenes: this.tour.scenes.filter(s => s.ready).map(s => ({ id: s.id, name: s.name, fileName: s.fileName, file: s.file, kind: s.kind, proj: s.proj, coverage: s.coverage, w: s.w, h: s.h, gpano: !!s.gpano, thumb: s.thumb, lens: s.lens, noAuto: !!s.noAuto, hotspots: s.hotspots, startYaw: s.startYaw, startPitch: s.startPitch })) };
+        const data = { title: this.tour.title, cloudId: this.tour.cloudId || null, slug: this.tour.slug || null, cloudSig: this.tour.cloudSig || null, cloudAt: this.tour.cloudAt || null, scenes: this.tour.scenes.filter(s => s.ready).map(s => ({ id: s.id, name: s.name, fileName: s.fileName, file: s.file, kind: s.kind, proj: s.proj, coverage: s.coverage, w: s.w, h: s.h, gpano: !!s.gpano, thumb: s.thumb, lens: s.lens, noAuto: !!s.noAuto, remote: s.remote || null, hotspots: s.hotspots, startYaw: s.startYaw, startPitch: s.startPitch })) };
         const tx = db.transaction('draft', 'readwrite'); tx.objectStore('draft').put(data, 'tour');
         tx.oncomplete = () => { const d = $('#bDraft'); if (d) d.textContent = 'Draft saved in this browser only.'; };
       } catch (e) { /* storage unavailable */ }
@@ -1874,8 +1903,8 @@ class Builder {
   async restoreDraft() {
     const db = await this.openDB(); if (!db) return;
     const data = await new Promise(res => { try { const rq = db.transaction('draft').objectStore('draft').get('tour'); rq.onsuccess = () => res(rq.result); rq.onerror = () => res(null); } catch (e) { res(null); } });
-    if (!data || !data.scenes || !data.scenes.length || this.tour.scenes.length) return;
-    this.tour.title = data.title || 'My property';
+    if (this._fresh || !data || !data.scenes || !data.scenes.length || this.tour.scenes.length) return;
+    this.tour.title = data.title || 'My property'; this.tour.cloudId = data.cloudId || null; this.tour.slug = data.slug || null; this.tour.cloudSig = data.cloudSig || null; this.tour.cloudAt = data.cloudAt || null;
     this.tour.scenes = data.scenes.map(s => Object.assign({}, s, { ready: true }));
     const t = $('#bTitle'); if (t) t.value = this.tour.title;
     this.sel = null; this.renderList();
@@ -1883,6 +1912,7 @@ class Builder {
   }
 }
 const round1 = v => Math.round(v * 10) / 10;
+const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 function cylProj(W, H, covDeg) {
   const span = covDeg * DEG;
   const tanV = (H / W) * span / 2;
@@ -1943,16 +1973,29 @@ function route() {
     pano.setTour(t); pano.show(t.scenes[0].id, {}); pano.autoRotate = false;
     renderTourUI(t, { noBack: true }); return;
   }
+  const tm = location.pathname.match(/\/t\/([A-Za-z0-9_-]{4,40})\/?$/) || (location.hash || '').match(/^#t\/([A-Za-z0-9_-]{4,40})$/);
+  if (tm) { state.view = 'tour'; ui.innerHTML = ''; window.__wantTour = tm[1]; setTimeout(() => { if (!window.GhoomoCloud) goHome(); }, 4000); return; }
   const hsh = (location.hash || '').slice(1);
   if (hsh === 'create') openBuilder();
+  else if (hsh === 'tours') { goHome(); window.__wantTours = true; }
   else if (hsh === 'capture' || hsh === 'capture-sim') { goHome(); openCapture(hsh === 'capture-sim' ? { sim: true } : {}); }
   else if (hsh === 'demo') { goHome(); startDemoTour(); }
   else goHome();
 }
 window.GhoomoApp = {
-  goHome, toast, ROOM_CHIPS,
+  goHome, toast, ROOM_CHIPS, openBuilder, openCapture, icon, h, esc, pano, ui,
+  getBuilder: () => builder,
+  get view() { return state.view; },
+  showTour(t, opts) {
+    if (builder) builder.close();
+    state.view = 'tour'; state.tour = t; pano.editMode = false; pano.pickMode = false; pano.noPreload = false;
+    pano.setTour(t); pano.show(t.scenes[0].id, {}); pano.autoRotate = false;
+    renderTourUI(t, opts || { noBack: true });
+  },
   async importCaptured(title, rooms) { openBuilder(); await new Promise(r => setTimeout(r, 50)); await builder.addCaptured(title, rooms); },
 };
+// a login provider sends people back with their tokens after '#': take them out of the address bar (and out of the router's way) for the cloud module
+if (/(^#|&)(access_token|error_description)=/.test(location.hash)) { window.__authHash = location.hash; history.replaceState(null, '', location.pathname + location.search); }
 route();
 })();
 </script>
@@ -2735,6 +2778,502 @@ window.GhoomoCapture = {
   stitchRoom, basisFromEuler, makeTargets, _sim: openSimCamera, _liveFit: liveFit, _liveFov: liveFov, _lowRes: lowRes, _turn: turn, _dirOf: dirOf,
 };
 if (window.__wantCapture) window.GhoomoCapture.open(window.__wantCapture);
+})();
+</script>
+
+<style id="cloud-css">
+/* ---------- accounts, cloud save, my tours ---------- */
+.acct{position:fixed;left:var(--gut);top:var(--top);z-index:9}
+.bcloud{padding:12px 14px 0;border-top:1px solid var(--line)}
+.bcloud > .btn{width:100%}
+.bacct{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);padding:6px 2px 0}
+.bacct span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sharebox{margin-top:12px;padding:12px;border-radius:12px;border:1px solid rgba(127,211,160,.4);background:rgba(127,211,160,.07);font-size:13px;color:#cfe9d9}
+.sharebox b{color:var(--text)}
+.sharebox .lnk{display:flex;gap:6px;margin-top:8px}
+.sharebox input{flex:1;min-width:0;box-sizing:border-box;background:rgba(0,0,0,.25);border:1px solid var(--line-2);color:var(--text);border-radius:8px;padding:7px 8px;font:inherit;font-size:12.5px}
+.sharebox{margin-top:10px;padding:10px;font-size:12.5px}
+.sharebox .btn{min-height:34px;font-size:12.5px;padding:0 10px;flex:none}
+.lsheet{width:min(440px,100%);box-sizing:border-box}
+.lsheet .gbtn{width:100%;margin-top:4px}
+.lsheet .or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12.5px;margin:16px 0 10px}
+.lsheet .or::before,.lsheet .or::after{content:"";flex:1;height:1px;background:var(--line)}
+.lsheet input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid var(--line-2);border-radius:12px;color:var(--text);font:inherit;font-size:15px;padding:11px 12px;margin:0 0 10px}
+.lsheet .btn.primary{width:100%}
+.lsheet .err{color:var(--bad);font-size:13.5px;margin:10px 0 0}
+.lsheet .small{font-size:12.5px;color:var(--muted);margin:10px 0 0}
+.lsheet #lInfo{margin:0 0 10px}
+.dash{position:fixed;inset:0;z-index:25;background:var(--ink);overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.dash .dhead{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;padding:var(--top) 16px 12px;background:var(--ink);border-bottom:1px solid var(--line)}
+.dash .dhead .tt{flex:1;min-width:0}
+.dash .dhead b{display:block;font-family:var(--f-display);font-variation-settings:"wdth" 110;font-size:18px}
+.dash .dhead span{display:block;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash .dbody{max-width:1000px;margin:0 auto;padding:18px 16px calc(var(--bot) + 24px);box-sizing:border-box}
+.dash .dacts{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.tcard{border:1px solid var(--line);border-radius:14px;background:var(--ink-2);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.tcard img{width:100%;aspect-ratio:2/1;object-fit:cover;display:block;background:var(--ink-3)}
+.tcard .tb{padding:12px 12px 10px;min-width:0}
+.tcard .tn{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tcard .tm{font-size:12.5px;color:var(--muted);margin-top:2px}
+.tcard .ta{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 12px}
+.tcard .ta .btn{min-height:34px;padding:0 11px;font-size:12.5px}
+.dempty{border:1.5px dashed var(--line-2);border-radius:14px;padding:34px 16px;text-align:center;color:var(--muted)}
+.dempty b{display:block;color:var(--text);font-size:16px;margin-bottom:6px}
+.dmsg{text-align:center;color:var(--muted);padding:40px 0}
+.nf{position:fixed;inset:0;display:grid;place-items:center;z-index:12;padding:24px;text-align:center;background:var(--ink)}
+.nf b{display:block;font-size:20px;margin-bottom:8px;font-family:var(--f-display)}
+.nf p{color:var(--muted);margin:0 0 16px}
+</style>
+<script id="cloud-script">
+/* =====================================================================
+   Ghoomo 360 cloud: login (Google or email code), "Mere tours", saving tours
+   with their photos, and public share links. Talks to Supabase (login +
+   database) with plain fetch calls and to the site's own /api functions
+   (photo storage in Cloudflare R2). Does nothing until GHOOMO_CONFIG is set.
+   ===================================================================== */
+(function () {
+'use strict';
+const CFG = window.GHOOMO_CONFIG || {};
+const ON = !!(CFG.supabaseUrl && CFG.supabaseKey && !/YOUR|xxxx/i.test(CFG.supabaseUrl + CFG.supabaseKey));
+const APP = window.GhoomoApp;
+if (!ON || !APP) { if (window.__wantTour) setTimeout(() => APP && APP.goHome(), 0); return; }
+const SB = String(CFG.supabaseUrl).replace(/\/$/, ''), KEY = CFG.supabaseKey;
+const PHOTO = String(CFG.photoBase || '').replace(/\/?$/, '/'), API = String(CFG.apiBase || '').replace(/\/$/, '');
+const { h, esc, icon, toast } = APP;
+const LS = 'ghoomo.session.v1';
+
+/* ------------------------------------------------------------------ session */
+let session = null; const subs = [];
+try { session = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { session = null; }
+const user = () => (session && session.user) || null;
+function setSession(s) {
+  session = s;
+  try { if (s) localStorage.setItem(LS, JSON.stringify(s)); else localStorage.removeItem(LS); } catch (e) { /* private mode: session lasts for this tab */ }
+  subs.forEach(f => { try { f(user()); } catch (e) { console.error(e); } });
+}
+function fromToken(t, u) {
+  const usr = u || t.user || (session && session.user) || {};
+  const md = usr.user_metadata || {};
+  return {
+    access_token: t.access_token, refresh_token: t.refresh_token,
+    expires_at: +t.expires_at || Math.floor(Date.now() / 1000) + (+t.expires_in || 3600),
+    user: { id: usr.id, email: usr.email || '', name: usr.name || md.full_name || md.name || '' },
+  };
+}
+const keyHeaders = () => { const hd = { apikey: KEY, 'Content-Type': 'application/json' }; if (/^eyJ/.test(KEY)) hd.Authorization = 'Bearer ' + KEY; return hd; };
+async function call(path, opts) {
+  const res = await fetch(SB + path, opts);
+  const txt = await res.text(); let body = null;
+  try { body = txt ? JSON.parse(txt) : null; } catch (e) { body = txt; }
+  if (!res.ok) {
+    const msg = (body && (body.msg || body.message || body.error_description || body.error)) || ('HTTP ' + res.status);
+    const err = new Error(String(msg)); err.status = res.status; throw err;
+  }
+  return body;
+}
+let refreshing = null;
+async function token() {                       // a valid access token, refreshed when close to expiry
+  if (!session) return null;
+  if (Date.now() / 1000 < session.expires_at - 90) return session.access_token;
+  if (!refreshing) refreshing = (async () => {
+    try { const t = await call('/auth/v1/token?grant_type=refresh_token', { method: 'POST', headers: keyHeaders(), body: JSON.stringify({ refresh_token: session.refresh_token }) }); setSession(fromToken(t)); }
+    catch (e) { if (e.status === 400 || e.status === 401 || e.status === 403) setSession(null); else throw e; }
+    finally { refreshing = null; }
+  })();
+  await refreshing;
+  return session ? session.access_token : null;
+}
+async function authed(path, opts = {}) {
+  const tk = await token(); if (!tk) { const e = new Error('Login zaroori hai.'); e.status = 401; throw e; }
+  const hd = Object.assign({ apikey: KEY, Authorization: 'Bearer ' + tk, 'Content-Type': 'application/json' }, opts.headers || {});
+  return call(path, Object.assign({}, opts, { headers: hd }));
+}
+const Auth = {
+  google() {
+    const back = location.origin + location.pathname + (location.hash && location.hash !== '#' ? location.hash : '');
+    try { sessionStorage.setItem('ghoomo.back', back); } catch (e) {}
+    location.href = `${SB}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(location.origin + location.pathname)}`;
+  },
+  async sendCode(email) { await call('/auth/v1/otp', { method: 'POST', headers: keyHeaders(), body: JSON.stringify({ email, create_user: true }) }); },
+  async verify(email, code) { const t = await call('/auth/v1/verify', { method: 'POST', headers: keyHeaders(), body: JSON.stringify({ type: 'email', email, token: code }) }); setSession(fromToken(t)); },
+  async logout() {
+    const tk = session && session.access_token;
+    setSession(null);
+    if (tk) { try { await fetch(SB + '/auth/v1/logout', { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + tk } }); } catch (e) {} }
+  },
+  // returning from Google: the tokens arrive in the address after '#'
+  async fromRedirect() {
+    const raw = (window.__authHash || location.hash || '').replace(/^#/, ''); window.__authHash = null;
+    if (!/(^|&)(access_token|error_description)=/.test(raw)) return false;
+    const p = new URLSearchParams(raw);
+    let back = ''; try { back = sessionStorage.getItem('ghoomo.back') || ''; sessionStorage.removeItem('ghoomo.back'); } catch (e) {}
+    history.replaceState(null, '', back && back.startsWith(location.origin) ? back.slice(location.origin.length) : location.pathname);
+    Auth.backHash = back.includes('#') ? back.slice(back.indexOf('#')) : '';
+    if (p.get('error_description')) { toast('Login nahi hua: ' + p.get('error_description'), 4200); return true; }
+    try {
+      const u = await call('/auth/v1/user', { headers: { apikey: KEY, Authorization: 'Bearer ' + p.get('access_token') } });
+      setSession(fromToken({ access_token: p.get('access_token'), refresh_token: p.get('refresh_token'), expires_in: p.get('expires_in'), expires_at: p.get('expires_at') }, u));
+      toast('Login ho gaya.');
+    } catch (e) { toast('Login nahi hua, dobara try kariye.'); }
+    return true;
+  },
+};
+
+/* ------------------------------------------------------------------ data */
+const Tours = {
+  list() { return authed('/rest/v1/tours?select=id,title,slug,rooms,views,cover_key,data,updated_at&order=updated_at.desc'); },
+  async create(title) {
+    try { const r = await authed('/rest/v1/tours', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify({ title, data: { v: 1, rooms: [] }, rooms: 0 }) }); return r[0]; }
+    catch (e) { if (/limit reached/i.test(e.message)) e.message = 'Aapke account mein 200 tours ho gaye. Kuch purane tours delete kariye.'; throw e; }
+  },
+  async update(id, fields) { const r = await authed('/rest/v1/tours?id=eq.' + encodeURIComponent(id), { method: 'PATCH', headers: { Prefer: 'return=representation' }, body: JSON.stringify(fields) }); return r && r[0]; },
+  async open(slug) { const r = await call('/rest/v1/rpc/get_public_tour', { method: 'POST', headers: keyHeaders(), body: JSON.stringify({ p_slug: slug }) }); return Array.isArray(r) ? r[0] : null; },
+  async remove(id) { return fn('delete?tour=' + encodeURIComponent(id), { method: 'POST' }); },
+};
+async function fn(path, opts = {}) {            // the site's own server functions
+  const tk = await token(); if (!tk) { const e = new Error('Login zaroori hai.'); e.status = 401; throw e; }
+  const res = await fetch(`${API}/api/${path}`, Object.assign({}, opts, { headers: Object.assign({ Authorization: 'Bearer ' + tk }, opts.headers || {}) }));
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(body.error || ('HTTP ' + res.status)); e.status = res.status; throw e; }
+  return body;
+}
+async function uploadPhoto(tourId, name, blob) {
+  let last = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { const r = await fn(`upload?tour=${encodeURIComponent(tourId)}&name=${encodeURIComponent(name)}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob }); return r.key; }
+    catch (e) { last = e; if (e.status && e.status < 500) break; await new Promise(r => setTimeout(r, 800 * (attempt + 1))); }
+  }
+  throw last;
+}
+const shareLink = slug => `${location.origin}/t/${slug}`;
+const waLink = (title, slug) => 'https://wa.me/?text=' + encodeURIComponent(`${title}: 360° tour dekhiye ${shareLink(slug)}`);
+async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { return false; } }
+
+/* ------------------------------------------------------------------ images for upload */
+const G = window.Ghoomo;
+async function jpegOf(file, maxW, q) {
+  const d = await G.decodeBlob(file, maxW);
+  const c = document.createElement('canvas'); c.width = d.w; c.height = d.h;
+  c.getContext('2d').drawImage(d.img, 0, 0, d.w, d.h); if (d.img.close) d.img.close();
+  const b = await new Promise(r => c.toBlob(r, 'image/jpeg', q)); c.width = c.height = 1;
+  if (!b) throw new Error('Photo taiyaar nahi ho payi.');
+  return b;
+}
+async function mainPhoto(s) {   // the original when it is already a JPEG of sensible size, else a high-quality copy
+  if (/jpe?g/i.test(s.file.type || '') && Math.max(s.w || 0, s.h || 0) <= 6144 && s.file.size <= 14 * 1024 * 1024) return s.file;
+  return jpegOf(s.file, (s.w || 0) >= (s.h || 0) ? 6144 : Math.round(6144 * (s.w / s.h)), 0.9);
+}
+const dataUrlBlob = async u => (await fetch(u)).blob();
+
+/* ------------------------------------------------------------------ what is saved, what is not */
+const r3 = v => Math.round((+v || 0) * 1000);
+function sigOf(tour) {     // everything a save writes, so "saved" can be told apart from "changed since"
+  return JSON.stringify([tour.title || '', tour.scenes.filter(s => s.ready).map(s => [s.id, s.name, s.kind || '', r3(s.startYaw), r3(s.startPitch), s.remote ? s.remote.key : '',
+    (s.hotspots || []).filter(x => !x.auto).map(x => [x.to, r3(x.yaw), r3(x.pitch)])])]);
+}
+function unsaved(b) {      // null when nothing would be lost, else what would be
+  if (!b) return null;
+  const n = b.tour.scenes.filter(s => s.ready).length;
+  if (!n || (b.tour.cloudId && b.tour.cloudSig === sigOf(b.tour))) return null;
+  return { n, saved: !!b.tour.cloudId, title: b.tour.title || 'My property' };
+}
+function leaveOk() {       // before a new or different tour replaces the one in the builder
+  const u = unsaved(APP.getBuilder());
+  if (!u) return Promise.resolve(true);
+  return new Promise(resolve => {
+    const sc = h(`<div class="scrim" role="dialog" aria-modal="true" aria-labelledby="uT"><div class="sheet lsheet"><h2 id="uT"></h2><p class="sub"></p><div class="foot"><button class="btn danger" id="uDrop" type="button">Chhod do</button><button class="btn primary" id="uSave" type="button">Pehle save karo</button></div></div></div>`);
+    sc.querySelector('h2').textContent = u.saved ? 'Naye badlav save nahi hue' : 'Abhi wala tour save nahi hua';
+    sc.querySelector('.sub').textContent = u.saved
+      ? `"${u.title}" mein kiye naye badlav abhi save nahi hue. Chhodne par sirf yeh badlav hatenge, pehle save kiya tour bacha rahega.`
+      : `"${u.title}" (${u.n} room${u.n === 1 ? '' : 's'}) abhi kahin save nahi hua hai. Chhodne par yeh hamesha ke liye hat jayega.`;
+    document.body.appendChild(sc);
+    const done = v => { sc.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+    const onKey = e => { if (e.key === 'Escape') done(false); };
+    document.addEventListener('keydown', onKey);
+    sc.addEventListener('click', e => { if (e.target === sc) done(false); });
+    sc.querySelector('#uDrop').onclick = () => done(true);
+    sc.querySelector('#uSave').onclick = () => {
+      done(false); closeDashboard(); if (APP.view !== 'build') APP.openBuilder();
+      setTimeout(() => { const s = document.getElementById('cSave'); if (s) { s.scrollIntoView({ block: 'nearest' }); s.focus(); } }, 250);
+    };
+    setTimeout(() => sc.querySelector('#uSave').focus(), 30);
+  });
+}
+const idleLabel = b => b.tour.cloudId ? (b.tour.cloudSig === sigOf(b.tour) ? 'Save ho gaya' : 'Badlav save karo') : 'Save karo aur link pao';
+function setBusy(b, text) {  // the save button explains what is happening while a saved tour loads
+  b.cloudBusy = text || null;
+  const s = document.getElementById('cSave'); if (!s) return;
+  s.disabled = !!text; const l = s.querySelector('span'); if (l) l.textContent = text || idleLabel(b);
+  const m = document.getElementById('cMine'); if (m) m.hidden = !user() || !!text;
+}
+
+/* ------------------------------------------------------------------ save a builder tour */
+async function saveTour(b, onStep) {
+  const tour = b.tour;
+  if (!tour.scenes.some(s => s.ready)) throw new Error('Pehle kam se kam ek room jodiye.');
+  if (!tour.cloudId) { const row = await Tours.create(tour.title || 'My property'); tour.cloudId = row.id; tour.slug = row.slug; b.saveDraft(); }
+  const todo = tour.scenes.filter(s => s.ready && !s.remote);
+  for (let i = 0; i < todo.length; i++) {
+    if (b.tour !== tour) throw new Error('Beech mein naya tour khul gaya, isliye save roka.');
+    const s = todo[i]; if (!tour.scenes.includes(s)) continue;     // removed while uploading
+    onStep(i, todo.length, s.name);
+    const tag = (s.id.replace(/[^a-z0-9]/gi, '').slice(-12) || 'room') + '-' + Math.random().toString(36).slice(2, 7);
+    const key = await uploadPhoto(tour.cloudId, tag + '.jpg', await mainPhoto(s));
+    const preview = await uploadPhoto(tour.cloudId, tag + '_s.jpg', await jpegOf(s.file, 1024, 0.82));
+    const thumb = await uploadPhoto(tour.cloudId, tag + '_t.jpg', await dataUrlBlob(s.thumb));
+    s.remote = { key, preview, thumb }; b.saveDraft();
+  }
+  onStep(todo.length, todo.length, '');
+  if (b.tour !== tour) throw new Error('Beech mein naya tour khul gaya, isliye save roka.');
+  const ready = tour.scenes.filter(s => s.ready && s.remote);
+  const ids = new Set(ready.map(s => s.id));
+  const rooms = ready.map(s => ({
+    id: s.id, name: s.name, kind: s.kind, proj: s.proj, coverage: s.coverage || null, lens: s.lens || null,
+    startYaw: s.startYaw || 0, startPitch: s.startPitch || 0, noAuto: !!s.noAuto,
+    hotspots: s.hotspots.filter(x => ids.has(x.to)).map(x => ({ id: x.id, to: x.to, yaw: x.yaw, pitch: x.pitch, arriveYaw: x.arriveYaw, auto: !!x.auto })),
+    key: s.remote.key, preview: s.remote.preview, thumb: s.remote.thumb,
+  }));
+  const row = await Tours.update(tour.cloudId, { title: tour.title || 'My property', data: { v: 1, rooms }, rooms: rooms.length, cover_key: rooms[0].preview });
+  if (!row) throw new Error('Tour save nahi hua. Shayad yeh tour delete ho chuka hai.');
+  tour.slug = row.slug; tour.cloudAt = row.updated_at || null; tour.cloudSig = sigOf(tour); b.saveDraft();
+  fn('prune?tour=' + encodeURIComponent(tour.cloudId), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keep: rooms.flatMap(r => [r.key, r.preview, r.thumb]) }) }).catch(() => {});
+  return row;
+}
+
+/* ------------------------------------------------------------------ login sheet */
+const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const I_USER = svg('<circle cx="12" cy="8" r="3.6"/><path d="M5 20c1.2-3.6 4-5.4 7-5.4s5.8 1.8 7 5.4"/>');
+const I_CLOUD = svg('<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 11 3.5 3.5 0 0 0 7 18z"/><path d="M12 10v6M9.5 12.5 12 10l2.5 2.5"/>');
+const I_SHARE = svg('<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 15V3M7.5 7.5 12 3l4.5 4.5"/>');
+function loginSheet(why) {
+  return new Promise(resolve => {
+    const sc = h(`<div class="scrim" role="dialog" aria-modal="true" aria-labelledby="lT"><div class="sheet lsheet">
+      <h2 id="lT">Login kariye</h2>
+      <p class="sub"></p>
+      <button class="btn gbtn" id="lG" type="button">${I_USER}Google se login</button>
+      <div class="or">ya email par code</div>
+      <div id="lS1"><input type="email" id="lE" placeholder="aapka@email.com" autocomplete="email" inputmode="email"><button class="btn primary" id="lSend" type="button">Code bhejo</button></div>
+      <div id="lS2" hidden><p class="small" id="lInfo"></p><input id="lC" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="Email mein aaya code"><button class="btn primary" id="lV" type="button">Login</button><p class="small"><button class="linkbtn" id="lBack" type="button">Email badlo</button></p></div>
+      <p class="err" id="lErr" hidden></p>
+      <div class="foot"><button class="btn" id="lX" type="button">Band karo</button></div>
+    </div></div>`);
+    sc.querySelector('.sub').textContent = why || 'Aapke tours account mein save rahenge aur kisi bhi phone ya computer se khulenge.';
+    document.body.appendChild(sc);
+    const $s = q => sc.querySelector(q), err = $s('#lErr');
+    let email = '';
+    const fail = e => { err.textContent = e; err.hidden = false; };
+    const close = ok => { sc.remove(); document.removeEventListener('keydown', onKey); resolve(ok); };
+    const onKey = e => { if (e.key === 'Escape') close(false); };
+    document.addEventListener('keydown', onKey);
+    sc.addEventListener('click', e => { if (e.target === sc) close(false); });
+    $s('#lX').onclick = () => close(false);
+    $s('#lG').onclick = () => Auth.google();
+    const send = async () => {
+      email = $s('#lE').value.trim(); err.hidden = true;
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail('Sahi email likhiye.');
+      const bt = $s('#lSend'); bt.disabled = true; bt.textContent = 'Bhej rahe hain…';
+      try { await Auth.sendCode(email); $s('#lS1').hidden = true; $s('#lS2').hidden = false; $s('#lInfo').textContent = `Code ${email} par bheja hai. Inbox (ya Spam) dekhiye.`; $s('#lC').focus(); }
+      catch (e) { fail(e.status === 429 ? 'Bahut baar try hua. Thodi der baad kariye.' : 'Code nahi gaya: ' + e.message); }
+      finally { bt.disabled = false; bt.textContent = 'Code bhejo'; }
+    };
+    const verify = async () => {
+      const code = $s('#lC').value.replace(/\D/g, ''); err.hidden = true;
+      if (code.length < 6) return fail('Poora code likhiye.');
+      const bt = $s('#lV'); bt.disabled = true; bt.textContent = 'Check ho raha hai…';
+      try { await Auth.verify(email, code); toast('Login ho gaya.'); close(true); }
+      catch (e) { fail('Code galat hai ya purana ho gaya. Dobara try kariye.'); }
+      finally { bt.disabled = false; bt.textContent = 'Login'; }
+    };
+    $s('#lSend').onclick = send; $s('#lE').addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+    $s('#lV').onclick = verify; $s('#lC').addEventListener('keydown', e => { if (e.key === 'Enter') verify(); });
+    $s('#lBack').onclick = () => { $s('#lS2').hidden = true; $s('#lS1').hidden = false; err.hidden = true; };
+    setTimeout(() => $s('#lE').focus(), 50);
+  });
+}
+async function needLogin(why) { if (user()) return true; return loginSheet(why); }
+
+/* ------------------------------------------------------------------ home: account button */
+function onHome() {
+  const old = document.getElementById('cAcct'); if (old) old.remove();
+  const b = h(`<button class="btn acct glass" id="cAcct" type="button"></button>`);
+  const paint = () => { b.innerHTML = user() ? `${I_CLOUD}Mere tours` : `${I_USER}Login`; };
+  paint(); APP.ui.appendChild(b);
+  b.onclick = async () => { if (await needLogin()) openDashboard(); };
+  const off = () => { if (!document.body.contains(b)) return; paint(); };
+  subs.push(off);
+}
+
+/* ------------------------------------------------------------------ builder: save + share */
+function onBuilder(b) {
+  const panel = document.querySelector('.builder'); if (!panel) return;
+  const foot = panel.querySelector('.bfoot'); if (!foot) return;
+  const old = panel.querySelector('.bcloud'); if (old) old.remove();
+  const box = h(`<div class="bcloud"><button class="btn primary" id="cSave" type="button">${I_CLOUD}<span></span></button><div id="cShareSlot"></div><div class="bacct"><span id="cWho"></span><button class="linkbtn" id="cMine" type="button">Mere tours</button></div></div>`);
+  panel.insertBefore(box, foot);
+  const who = box.querySelector('#cWho'), save = box.querySelector('#cSave'), label = save.querySelector('span');
+  const idle = () => idleLabel(b);
+  label.textContent = b.cloudBusy || idle(); save.disabled = !!b.cloudBusy;
+  if (!b._cloudHook) {      // every builder change passes through saveDraft: keep the button honest about unsaved changes
+    b._cloudHook = true; const sd = b.saveDraft.bind(b);
+    b.saveDraft = function () { sd(); const sv = document.getElementById('cSave'); if (sv && !sv.disabled && !b.cloudBusy) { const l = sv.querySelector('span'); if (l) l.textContent = idleLabel(b); } };
+  }
+  const paint = () => { const u = user(); who.textContent = u ? (u.email || u.name || 'Logged in') : 'Login nahi hai: tour sirf is browser mein hai.'; box.querySelector('#cMine').hidden = !u || !!b.cloudBusy; };
+  paint(); subs.push(() => { if (document.body.contains(box)) paint(); });
+  box.querySelector('#cMine').onclick = () => openDashboard();
+  save.onclick = async () => {
+    if (b.cloudBusy) return;
+    const waiting = b.tour.scenes.filter(s => !s.ready && !s.error).length;
+    if (waiting) { toast(`${waiting} photo abhi taiyaar ho rahi ${waiting === 1 ? 'hai' : 'hain'}. Thoda rukiye, phir save kariye.`, 3200); return; }
+    if (!b.tour.scenes.some(s => s.ready)) { toast('Pehle photos jodiye.'); return; }
+    if (!(await needLogin('Tour save karne ke liye login kariye. Phir yeh kisi bhi phone se khulega aur link se share hoga.'))) return;
+    save.disabled = true;
+    try {
+      const row = await saveTour(b, (i, n, name) => { label.textContent = n ? (i < n ? `Upload: ${name} (${i + 1}/${n})` : 'Save ho raha hai…') : 'Save ho raha hai…'; });
+      label.textContent = idle();
+      showShare(b, row);
+    } catch (e) {
+      console.error(e);
+      label.textContent = idle();
+      toast(e.status === 401 ? 'Login khatam ho gaya. Dobara login kariye.' : 'Save nahi hua: ' + e.message, 4200);
+      if (e.status === 401) setSession(null);
+    } finally { save.disabled = false; }
+  };
+  if (b.tour.slug && b.tour.cloudId) showShare(b, { title: b.tour.title, slug: b.tour.slug }, true);
+}
+function showShare(b, row, quiet) {
+  const slot = document.getElementById('cShareSlot'); if (!slot) return;
+  slot.innerHTML = '';
+  const link = shareLink(row.slug);
+  const box = h(`<div class="sharebox" id="cShare"><b>${quiet ? 'Is tour ka link' : 'Tour save ho gaya'}</b>: customer ko bhejiye, login nahi chahiye.<div class="lnk"><input readonly aria-label="Tour link"><button class="btn" type="button" id="cCopy">Copy</button><a class="btn" id="cWa" target="_blank" rel="noopener">WhatsApp</a></div></div>`);
+  box.querySelector('input').value = link;
+  box.querySelector('#cWa').href = waLink(row.title || b.tour.title, row.slug);
+  box.querySelector('#cCopy').onclick = async () => { if (await copyText(link)) toast('Link copy ho gaya.'); else { box.querySelector('input').select(); toast('Link select ho gaya, copy kariye.'); } };
+  slot.appendChild(box);
+}
+
+/* ------------------------------------------------------------------ Mere tours */
+let dash = null;
+function closeDashboard() { if (dash) { dash.remove(); dash = null; } if (location.hash === '#tours') history.replaceState(null, '', location.pathname); }
+async function openDashboard() {
+  if (!(await needLogin())) return;
+  closeDashboard();
+  if (location.hash !== '#tours') history.replaceState(null, '', location.pathname + '#tours');
+  dash = h(`<section class="dash" aria-label="Mere tours"><div class="dhead"><button class="ibtn" id="dBack" aria-label="Wapas">${icon('i-back')}</button><div class="tt"><b>Mere tours</b><span id="dWho"></span></div><button class="btn small" id="dOut" type="button">Logout</button></div>
+    <div class="dbody"><div class="dacts"><button class="btn primary" id="dNew" type="button">${icon('i-upload')}Naya tour (photos se)</button><button class="btn" id="dCam" type="button">${icon('i-camera')}Phone se 360° lo</button></div><div id="dList"><div class="dmsg">Tours aa rahe hain…</div></div></div></section>`);
+  dash.querySelector('#dWho').textContent = (user() && (user().email || user().name)) || '';
+  document.body.appendChild(dash);
+  dash.querySelector('#dBack').onclick = () => closeDashboard();
+  dash.querySelector('#dOut').onclick = async () => { await Auth.logout(); closeDashboard(); toast('Logout ho gaya.'); };
+  dash.querySelector('#dNew').onclick = async () => { if (!(await leaveOk())) return; closeDashboard(); APP.openBuilder(); const b = APP.getBuilder(); if (b) { b.resetTour(); onBuilder(b); } };
+  dash.querySelector('#dCam').onclick = async () => { if (!(await leaveOk())) return; closeDashboard(); APP.openBuilder(); const b0 = APP.getBuilder(); if (b0) { b0.resetTour(); onBuilder(b0); } APP.openCapture(); };
+  await fillDashboard();
+}
+async function fillDashboard() {
+  const list = dash && dash.querySelector('#dList'); if (!list) return;
+  let rows;
+  try { rows = await Tours.list(); }
+  catch (e) { list.innerHTML = ''; const m = h(`<div class="dmsg"></div>`); m.textContent = e.status === 401 ? 'Login khatam ho gaya. Dobara login kariye.' : 'Tours nahi aa paaye: ' + e.message; list.appendChild(m); if (e.status === 401) setSession(null); return; }
+  list.innerHTML = '';
+  if (!rows.length) { list.appendChild(h(`<div class="dempty"><b>Abhi koi tour nahi hai</b>Photos jodiye ya phone se 360° lijiye, phir "Save karo" dabaiye.</div>`)); return; }
+  const grid = h(`<div class="tgrid"></div>`); list.appendChild(grid);
+  for (const r of rows) {
+    const rooms = (r.data && r.data.rooms) || [];
+    const card = h(`<article class="tcard"><img alt="" loading="lazy" decoding="async"><div class="tb"><div class="tn"></div><div class="tm"></div></div>
+      <div class="ta"><a class="btn" data-a="open" target="_blank" rel="noopener">Dekho</a><button class="btn" data-a="copy" type="button">Link copy</button><a class="btn" data-a="wa" target="_blank" rel="noopener">WhatsApp</a><button class="btn" data-a="edit" type="button">Edit</button><button class="btn danger" data-a="del" type="button">Delete</button></div></article>`);
+    const im = card.querySelector('img');
+    if (rooms[0] && rooms[0].thumb) { im.src = PHOTO + rooms[0].thumb; if (rooms[0].preview) { im.srcset = `${PHOTO + rooms[0].thumb} 320w, ${PHOTO + rooms[0].preview} 1024w`; im.sizes = '(max-width: 620px) calc(100vw - 32px), 320px'; } }
+    card.querySelector('.tn').textContent = r.title;
+    const d = new Date(r.updated_at);
+    card.querySelector('.tm').textContent = `${r.rooms} room${r.rooms === 1 ? '' : 's'} · ${r.views} views · ${isNaN(d) ? '' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    card.querySelector('[data-a="open"]').href = shareLink(r.slug);
+    card.querySelector('[data-a="wa"]').href = waLink(r.title, r.slug);
+    card.querySelector('[data-a="copy"]').onclick = async () => toast((await copyText(shareLink(r.slug))) ? 'Link copy ho gaya.' : shareLink(r.slug), 3200);
+    card.querySelector('[data-a="edit"]').onclick = () => editTour(r);
+    card.querySelector('[data-a="del"]').onclick = () => deleteTour(r);
+    grid.appendChild(card);
+  }
+}
+async function editTour(r) {
+  const cur = APP.getBuilder();
+  if (cur && cur.tour.cloudId === r.id && cur.tour.scenes.some(s => s.ready) && (unsaved(cur) || cur.tour.cloudAt === r.updated_at)) {
+    closeDashboard(); if (APP.view !== 'build') APP.openBuilder(); return;   // already open here (with any unsaved changes kept)
+  }
+  if (!(await leaveOk())) return;
+  const rooms = (r.data && r.data.rooms) || [];
+  closeDashboard(); APP.openBuilder();
+  const b = APP.getBuilder(), ticket = b.cloudTicket = (b.cloudTicket || 0) + 1;
+  b.resetTour(); b.tour.title = r.title; const ti = document.getElementById('bTitle'); if (ti) ti.value = r.title;
+  setBusy(b, 'Tour khul raha hai…'); onBuilder(b);
+  try {
+    let got = 0;
+    const list = await Promise.all(rooms.map(async room => {
+      let res = null;
+      for (let a = 0; a < 3 && !(res && res.ok); a++) { try { res = await fetch(PHOTO + room.key); } catch (e) { res = null; } if (!(res && res.ok)) await new Promise(z => setTimeout(z, 700 * (a + 1))); }
+      if (!(res && res.ok)) throw new Error('Photo nahi mili: ' + room.name);
+      const blob = await res.blob();
+      got++; if (b.cloudTicket === ticket) setBusy(b, `Photos aa rahi hain (${got}/${rooms.length})…`);
+      return Object.assign({}, room, { thumbUrl: room.thumb ? PHOTO + room.thumb : '', file: new File([blob], room.name.replace(/[^\w\- ]+/g, '') + '.jpg', { type: 'image/jpeg' }), remote: { key: room.key, preview: room.preview, thumb: room.thumb } });
+    }));
+    if (b.cloudTicket !== ticket) return;              // another tour was opened meanwhile
+    setBusy(b, 'Rooms taiyaar ho rahe hain…');
+    await b.loadRooms({ title: r.title, cloudId: r.id, slug: r.slug }, list);
+    if (b.cloudTicket !== ticket) return;
+    b.tour.cloudAt = r.updated_at || null; b.tour.cloudSig = sigOf(b.tour); b.saveDraft();
+  } catch (e) {
+    console.error(e); if (b.cloudTicket === ticket) toast('Tour nahi khul paya: ' + e.message, 4200);
+  } finally {
+    if (b.cloudTicket === ticket) { setBusy(b, null); onBuilder(b); }
+  }
+}
+function deleteTour(r) {
+  const sc = h(`<div class="scrim" role="dialog" aria-modal="true"><div class="sheet lsheet"><h2>Tour delete karein?</h2><p class="sub"></p><div class="foot"><button class="btn" id="xNo" type="button">Nahi</button><button class="btn danger" id="xYes" type="button">Haan, delete karo</button></div></div></div>`);
+  sc.querySelector('.sub').textContent = `"${r.title}" aur uski saari photos hamesha ke liye hat jayengi. Iska link bhi band ho jayega.`;
+  document.body.appendChild(sc);
+  sc.querySelector('#xNo').onclick = () => sc.remove();
+  sc.querySelector('#xYes').onclick = async () => {
+    const yes = sc.querySelector('#xYes'); yes.disabled = true; yes.textContent = 'Delete ho raha hai…';
+    try {
+      await Tours.remove(r.id); sc.remove(); toast('Tour delete ho gaya.');
+      const b = APP.getBuilder(); if (b && b.tour.cloudId === r.id) { b.tour.cloudId = null; b.tour.slug = null; b.tour.cloudSig = null; b.tour.cloudAt = null; b.tour.scenes.forEach(s => { s.remote = null; }); b.saveDraft(); const sl = document.getElementById('cShareSlot'); if (sl) sl.innerHTML = ''; }
+      fillDashboard();
+    } catch (e) { yes.disabled = false; yes.textContent = 'Haan, delete karo'; toast('Delete nahi hua: ' + e.message, 4200); }
+  };
+}
+
+/* ------------------------------------------------------------------ public tour from a share link */
+async function openPublic(slug) {
+  try {
+    const r = await Tours.open(slug);
+    const rooms = (r && r.data && r.data.rooms) || [];
+    if (!r || !rooms.length) throw Object.assign(new Error('missing'), { missing: true });
+    const t = {
+      id: 'pub-' + r.id, title: r.title,
+      subtitle: `${rooms.length} room${rooms.length === 1 ? '' : 's'} · 360° tour${r.business ? ' · ' + r.business : ''}`,
+      scenes: rooms.map(x => ({ id: x.id, name: x.name, src: { url: PHOTO + x.key, preview: PHOTO + x.preview }, proj: x.proj, hotspots: x.hotspots || [], startYaw: x.startYaw || 0, startPitch: x.startPitch || 0, thumb: PHOTO + x.thumb })),
+    };
+    document.title = r.title + ' · 360° tour';
+    APP.showTour(t, { noBack: true });
+  } catch (e) {
+    const boot = document.getElementById('boot'); if (boot) boot.classList.add('gone');
+    const nf = h(`<div class="nf"><div><b>Yeh tour nahi mila</b><p></p><a class="btn primary" href="/">Ghoomo 360 kholo</a></div></div>`);
+    nf.querySelector('p').textContent = e.missing ? 'Link galat hai, ya tour delete ho chuka hai.' : 'Internet check kariye aur page dobara kholiye.';
+    document.body.appendChild(nf);
+  }
+}
+
+/* ------------------------------------------------------------------ start */
+window.GhoomoCloud = { onHome, onBuilder, openDashboard, user, saveTour, _auth: Auth, _tours: Tours };
+(async () => {
+  const back = await Auth.fromRedirect();
+  if (window.__wantTour) { const s = window.__wantTour; window.__wantTour = null; openPublic(s); return; }
+  if (back && Auth.backHash === '#create') { APP.openBuilder(); return; }
+  if (back && Auth.backHash === '#tours') window.__wantTours = true;
+  if (APP.view === 'home') onHome();
+  if (APP.view === 'build' && APP.getBuilder()) onBuilder(APP.getBuilder());
+  if (window.__wantTours || location.hash === '#tours') { window.__wantTours = false; openDashboard(); }
+  if (session) token().catch(() => {});
+})();
 })();
 </script>
 </body>
