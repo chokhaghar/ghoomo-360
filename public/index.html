@@ -2104,22 +2104,32 @@ async function lowRes(blob, W) {
   const w = bmp.width, h = bmp.height;
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0); if (bmp.close) bmp.close();
-  const d = g.getImageData(0, 0, w, h).data; const gray = new Float32Array(w * h);
-  for (let i = 0; i < w * h; i++) gray[i] = (0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]) / 255;
-  // light blur: matching is about structure, not noise
-  const out = new Float32Array(w * h);
+  const d = g.getImageData(0, 0, w, h).data;
+  // light 3x3 blur of every channel: matching is about structure, not noise
+  const rgb = new Float32Array(w * h * 3), out = new Float32Array(w * h);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    let s = 0, n = 0;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h) { s += gray[yy * w + xx]; n++; } }
-    out[y * w + x] = s / n;
+    let r = 0, gg = 0, b = 0, n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h) { const i = (yy * w + xx) * 4; r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; } }
+    const o = y * w + x; rgb[o * 3] = r / n / 255; rgb[o * 3 + 1] = gg / n / 255; rgb[o * 3 + 2] = b / n / 255;
+    out[o] = 0.299 * rgb[o * 3] + 0.587 * rgb[o * 3 + 1] + 0.114 * rgb[o * 3 + 2];
   }
-  return { w, h, g: out };
+  return { w, h, g: out, c: rgb };
 }
 function sampleGray(L, x, y) {         // x,y in pixels, bilinear
   const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0;
   const i = y0 * L.w + x0, g = L.g;
   return (g[i] * (1 - fx) + g[i + 1] * fx) * (1 - fy) + (g[i + L.w] * (1 - fx) + g[i + L.w + 1] * fx) * fy;
 }
+function sampleRGB(L, x, y, o) {       // same, three channels into o
+  const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0, c = L.c, i = (y0 * L.w + x0) * 3, j = i + L.w * 3;
+  for (let k = 0; k < 3; k++) o[k] = (c[i + k] * (1 - fx) + c[i + 3 + k] * fx) * (1 - fy) + (c[j + k] * (1 - fx) + c[j + 3 + k] * fx) * fy;
+  return o;
+}
+/* lens: photos are bent a little (barrel / pincushion). K1 > 0 or < 0 is estimated from the photos themselves.
+   ideal = image * (1 + K1 r^2); the way back is a few fixed-point steps. */
+let K1 = 0;
+const undistort = (x, y) => { const f = 1 + K1 * (x * x + y * y); return [x * f, y * f]; };
+const distort = (xi, yi) => { let x = xi, y = yi; for (let k = 0; k < 4; k++) { const f = 1 + K1 * (x * x + y * y); x = xi / f; y = yi / f; } return [x, y]; };
 
 function makeAligner(shots) {
   const N = shots.length;
@@ -2131,22 +2141,33 @@ function makeAligner(shots) {
     s.pts = [];
     for (let a = 0; a < GY; a++) for (let b = 0; b < GX; b++) {
       const x = -0.92 + 1.84 * b / (GX - 1), y = -0.92 + 1.84 * a / (GY - 1);
-      s.pts.push([x, y, sampleGray(s.lo, (x + 1) / 2 * (s.lo.w - 1.001), (1 - y) / 2 * (s.lo.h - 1.001))]);
+      const sx = (x + 1) / 2 * (s.lo.w - 1.001), sy = (1 - y) / 2 * (s.lo.h - 1.001);
+      s.pts.push([x, y, sampleGray(s.lo, sx, sy), sampleRGB(s.lo, sx, sy, [0, 0, 0])]);
     }
   }
   // cost of one pair: 1 - normalised cross-correlation of overlapping samples (both directions)
-  function pairStats(i, j, tl) {
+  const tmpA = [0, 0, 0], tmpB = [0, 0, 0];
+  function pairStats(i, j, tl, rgb) {
     const A = shots[i], Bs = shots[j];
-    const va = [], vb = [];
+    const va = [], vb = [], ca = [], cb = [];
+    const lens = K1 !== 0;
     const one = (P, Q) => {
       const tx = tl * P.ax, ty = tl * P.ay, qx = tl * Q.ax, qy = tl * Q.ay, PB = P.B, QB = Q.B;
       for (const p of P.pts) {
-        const d = [PB.f[0] + p[0] * tx * PB.r[0] + p[1] * ty * PB.u[0], PB.f[1] + p[0] * tx * PB.r[1] + p[1] * ty * PB.u[1], PB.f[2] + p[0] * tx * PB.r[2] + p[1] * ty * PB.u[2]];
+        let px = p[0], py = p[1];
+        if (lens) { const f = 1 + K1 * (px * px + py * py); px *= f; py *= f; }
+        const d = [PB.f[0] + px * tx * PB.r[0] + py * ty * PB.u[0], PB.f[1] + px * tx * PB.r[1] + py * ty * PB.u[1], PB.f[2] + px * tx * PB.r[2] + py * ty * PB.u[2]];
         const z = dot(d, QB.f); if (z <= 0.05) continue;
-        const x = dot(d, QB.r) / (z * qx), y = dot(d, QB.u) / (z * qy);
+        let x = dot(d, QB.r) / (z * qx), y = dot(d, QB.u) / (z * qy);
+        if (lens) { const xi = x, yi = y; for (let k = 0; k < 4; k++) { const f = 1 + K1 * (x * x + y * y); x = xi / f; y = yi / f; } }
         if (x < -0.96 || x > 0.96 || y < -0.96 || y > 0.96) continue;
-        const g = sampleGray(Q.lo, (x + 1) / 2 * (Q.lo.w - 1.001), (1 - y) / 2 * (Q.lo.h - 1.001));
+        const sx = (x + 1) / 2 * (Q.lo.w - 1.001), sy = (1 - y) / 2 * (Q.lo.h - 1.001);
+        const g = sampleGray(Q.lo, sx, sy);
         if (P === A) { va.push(p[2]); vb.push(g); } else { va.push(g); vb.push(p[2]); }
+        if (rgb) {
+          const m = sampleRGB(Q.lo, sx, sy, tmpA), o = p[3];
+          if (P === A) { ca.push(o[0], o[1], o[2]); cb.push(m[0], m[1], m[2]); } else { ca.push(m[0], m[1], m[2]); cb.push(o[0], o[1], o[2]); }
+        }
       }
     };
     one(A, Bs); one(Bs, A);
@@ -2154,7 +2175,9 @@ function makeAligner(shots) {
     let ma = 0, mb = 0; for (let k = 0; k < n; k++) { ma += va[k]; mb += vb[k]; } ma /= n; mb /= n;
     let sab = 0, saa = 0, sbb = 0; for (let k = 0; k < n; k++) { const a = va[k] - ma, b = vb[k] - mb; sab += a * b; saa += a * a; sbb += b * b; }
     const ncc = sab / Math.sqrt(saa * sbb + 1e-9);
-    return { n, cost: (1 - ncc) * n, ma, mb, sd: Math.sqrt(saa / n) };
+    const res = { n, cost: (1 - ncc) * n, ma, mb, sd: Math.sqrt(saa / n) };
+    if (rgb) { res.ra = [0, 0, 0]; res.rb = [0, 0, 0]; for (let k = 0; k < n; k++) for (let c = 0; c < 3; c++) { res.ra[c] += ca[k * 3 + c]; res.rb[c] += cb[k * 3 + c]; } for (let c = 0; c < 3; c++) { res.ra[c] /= n; res.rb[c] /= n; } }
+    return res;
   }
   function cost(tl, only) {
     let c = 0, n = 0;
@@ -2169,7 +2192,7 @@ function makeAligner(shots) {
 
 /* how well photo k agrees with the photos it overlaps (normalised correlation), and how much detail
    the overlap has - plain walls carry no evidence either way, so they are never judged */
-const FIT_MIN = 0.4, TEX_MIN = 0.035;
+const FIT_MIN = 0.33, TEX_MIN = 0.035;
 function fitOf(A, k, tl) {
   let num = 0, den = 0, tex = 0;
   for (const [i, j] of A.pairs) { if (i !== k && j !== k) continue; const st = A.pairStats(i, j, tl); if (!st) continue; num += st.cost; den += st.n; tex += st.sd * st.n; }
@@ -2196,6 +2219,7 @@ function liveFov(shots) {             // lens estimate from the photos taken so 
   return best;
 }
 async function alignShots(shots, onProg) {
+  K1 = 0;
   for (let i = 0; i < shots.length; i++) {
     if (!shots[i].lo) shots[i].lo = await lowRes(shots[i].blob, 176);
     const L = shots[i].lo, long = Math.max(L.w, L.h);
@@ -2225,80 +2249,88 @@ async function alignShots(shots, onProg) {
       }
     }
   };
-  await refine(tOf(bestF), [2, 1, 0.5], 2, 0.28, 0.5);
+  await refine(tOf(bestF), [2, 1, 0.5], 2, 0.28, 0.45);
   for (let f = bestF - 2; f <= bestF + 2; f += 0.5) { const c = A.cost(tOf(f)); if (c < bestC) { bestC = c; bestF = f; } }
-  await refine(tOf(bestF), [0.5, 0.25, 0.12], 2, 0.5, 0.6);
-  const tl = tOf(bestF);
-  // 3) brightness: one gain per photo so overlaps match
-  const N = shots.length, g = new Float64Array(N).fill(1); const terms = [];
-  for (const [i, j] of A.pairs) { const s = A.pairStats(i, j, tl); if (s) terms.push([i, j, s.ma, s.mb, s.n]); }
-  for (let it = 0; it < 40; it++) for (let i = 0; i < N; i++) {
-    let num = 0.02, den = 0.02;
-    for (const [a, b, ma, mb, n] of terms) {
-      if (a === i) { num += n * g[b] * mb * ma; den += n * ma * ma; }
-      else if (b === i) { num += n * g[a] * ma * mb; den += n * mb * mb; }
+  // (lens bend is not estimated: phone video is already straightened, and the estimate was not reliable under hand parallax)
+  let bestK = 0; bestC = A.cost(tOf(bestF));
+  await refine(tOf(bestF), [1, 0.5, 0.25], 2, 0.45, 0.58);
+  for (let f = bestF - 1; f <= bestF + 1; f += 0.5) { const c = A.cost(tOf(f)); if (c < bestC) { bestC = c; bestF = f; } }
+  await refine(tOf(bestF), [0.5, 0.25, 0.12], 2, 0.58, 0.66);
+  const tl = tOf(bestF), k1 = K1;
+  // 3) brightness and colour: one gain per photo and colour channel so overlaps match
+  const N = shots.length; const terms = [];
+  for (const [i, j] of A.pairs) { const st = A.pairStats(i, j, tl, true); if (st) terms.push([i, j, st.ra, st.rb, st.n]); }
+  for (const sh of shots) sh.gain3 = [1, 1, 1];
+  for (let c = 0; c < 3; c++) {
+    const g = new Float64Array(N).fill(1);
+    for (let it = 0; it < 40; it++) for (let i = 0; i < N; i++) {
+      let num = 0.02, den = 0.02;
+      for (const [a, b, ra, rb, n] of terms) {
+        if (a === i) { num += n * g[b] * rb[c] * ra[c]; den += n * ra[c] * ra[c]; }
+        else if (b === i) { num += n * g[a] * ra[c] * rb[c]; den += n * rb[c] * rb[c]; }
+      }
+      g[i] = clamp(num / den, 0.5, 2);
     }
-    g[i] = clamp(num / den, 0.5, 2);
+    const med = [...g].sort((x, y) => x - y)[N >> 1]; for (let i = 0; i < N; i++) shots[i].gain3[c] = g[i] / med;
   }
-  const med = [...g].sort((a, b) => a - b)[N >> 1]; for (let i = 0; i < N; i++) shots[i].gain = g[i] / med;
+  for (const sh of shots) sh.gain = (sh.gain3[0] + sh.gain3[1] + sh.gain3[2]) / 3;
   // which photos still do not fit their neighbours (usually: the phone moved away from the spot)
   const bad = [], fits = [];
-  for (let i = 0; i < N; i++) { const f = fitOf(A, i, tl); fits.push(f ? +f.ncc.toFixed(2) : null); if (f && f.tex > TEX_MIN && f.ncc < FIT_MIN) bad.push(i); }
-  return { fov: bestF, tl, quality: 1 - bestC, bad, fits };
+  for (let i = 0; i < N; i++) { const f = fitOf(A, i, tl); fits.push(f ? +f.ncc.toFixed(2) : null); if (f && f.tex > TEX_MIN && f.ncc < FIT_MIN && !(shots[i].ti >= 28)) bad.push(i); }    // straight up / down photos carry no detail to judge
+  K1 = 0;
+  return { fov: bestF, tl, k1, quality: 1 - bestC, bad, fits };
 }
 
-/* ---- GPU blend into an equirectangular image ---- */
+/* ---- GPU blend into an equirectangular image ----
+   Every photo is first given its own territory on the sphere (planSeams: seams run through plain wall or floor,
+   never through a cabinet or a picture). Then two layers are made:
+   - "narrow": each photo only paints its own territory, so every detail comes from ONE photo (no doubles);
+   - "wide": all photos averaged softly: this gives smooth colour and light with no patches.
+   Final picture = smooth colour of the wide layer + the fine detail of the narrow layer. */
 const VS = `#version 300 es
 in vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
-/* Pass 1 (FS_WMAX): for every output pixel, how central the best photo is there.
-   Pass 2 (FS_ACC): each photo only paints where it is (nearly) the most central one, so photos meet
-   along a narrow seam instead of being averaged over wide areas - that averaging is what made
-   nearby objects appear twice. */
-const FS_WMAX = `#version 300 es
-precision highp float;
-uniform vec3 uR, uU, uF; uniform vec2 uT; uniform vec2 uOut;
-out vec4 o;
-void main(){
-  vec2 uv = gl_FragCoord.xy / uOut;
-  float lon = (uv.x - 0.5) * 6.2831853, lat = (0.5 - uv.y) * 3.1415927;
-  vec3 d = vec3(cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon));
-  float z = dot(d, uF); if (z <= 0.02) discard;
-  float x = dot(d, uR) / (z * uT.x), y = dot(d, uU) / (z * uT.y);
-  if (abs(x) > 1.0 || abs(y) > 1.0) discard;
-  o = vec4(max((1.0 - x * x) * (1.0 - y * y), 0.0), 0.0, 0.0, 1.0);
-}`;
 const FS_ACC = `#version 300 es
 precision highp float;
-uniform sampler2D uImg; uniform sampler2D uMax; uniform vec3 uR, uU, uF; uniform vec2 uT; uniform vec2 uOut; uniform float uGain, uWs;
-out vec4 o;
+uniform sampler2D uImg; uniform sampler2D uMask; uniform vec3 uR, uU, uF, uGain; uniform vec2 uT; uniform vec2 uOut; uniform float uWs, uK;
+layout(location = 0) out vec4 oN;
+layout(location = 1) out vec4 oW;
 void main(){
   vec2 uv = gl_FragCoord.xy / uOut;           // v = 0 at the top row of the final image
   float lon = (uv.x - 0.5) * 6.2831853, lat = (0.5 - uv.y) * 3.1415927;
   vec3 d = vec3(cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon));
   float z = dot(d, uF); if (z <= 0.02) discard;
-  float x = dot(d, uR) / (z * uT.x), y = dot(d, uU) / (z * uT.y);
-  if (abs(x) > 1.0 || abs(y) > 1.0) discard;
-  float w0 = max((1.0 - x * x) * (1.0 - y * y), 0.0);
-  float m = texelFetch(uMax, ivec2(gl_FragCoord.xy), 0).r;
-  float w = clamp((w0 - 0.86 * m) / (0.14 * m + 1e-4), 0.0, 1.0);
-  w = w * w * (3.0 - 2.0 * w) + 1e-5;
-  vec3 c = texture(uImg, vec2(0.5 + 0.5 * x, 0.5 - 0.5 * y)).rgb;
-  o = vec4(c * uGain * w, w) * uWs;
+  vec2 id = vec2(dot(d, uR) / (z * uT.x), dot(d, uU) / (z * uT.y)), xy = id;
+  for (int k = 0; k < 4; k++) xy = id / (1.0 + uK * dot(xy, xy));
+  if (abs(xy.x) >= 1.0 || abs(xy.y) >= 1.0) discard;
+  float w0 = (1.0 - xy.x * xy.x) * (1.0 - xy.y * xy.y);
+  vec3 c = texture(uImg, vec2(0.5 + 0.5 * xy.x, 0.5 - 0.5 * xy.y)).rgb * uGain;
+  float wn = texture(uMask, uv).r * clamp(w0 * 6.0, 0.0, 1.0), ww = w0 * w0;
+  oN = vec4(c * wn, wn) * uWs;
+  oW = vec4(c * ww, ww) * uWs;
 }`;
 const FS_FIN = `#version 300 es
 precision highp float;
-uniform sampler2D uAcc; uniform sampler2D uFill; uniform vec2 uOut;
+uniform sampler2D uAccN; uniform sampler2D uAccW; uniform sampler2D uFill; uniform vec2 uOut; uniform float uLod;
 uniform vec3 uWb; uniform vec2 uLv; uniform float uGam, uSat, uSharp, uOn;
 out vec4 o;
-vec4 at(vec2 px){ return texture(uAcc, px / uOut); }
-vec3 col(vec4 a, vec2 uv){ return a.a > 1e-5 ? a.rgb / a.a : texture(uFill, uv).rgb; }
+vec4 blurLod(sampler2D t, vec2 uv){
+  vec2 q = exp2(uLod) / uOut * 0.5;
+  return (textureLod(t, uv, uLod) * 2.0 + textureLod(t, uv + vec2(q.x, q.y), uLod) + textureLod(t, uv + vec2(-q.x, q.y), uLod)
+        + textureLod(t, uv + vec2(q.x, -q.y), uLod) + textureLod(t, uv + vec2(-q.x, -q.y), uLod)) / 6.0;
+}
+vec3 narrowAt(vec2 uv){ vec4 n = texture(uAccN, uv); return n.a > 1e-3 ? n.rgb / n.a : vec3(-1.0); }
 void main(){
   vec2 px = gl_FragCoord.xy, uv = px / uOut;
-  vec4 a = at(px);
-  vec3 c = col(a, uv);
+  vec4 n = texture(uAccN, uv), lw = blurLod(uAccW, uv), ln = blurLod(uAccN, uv);
+  vec3 c; float ok = 1.0;
+  if (n.a > 1e-3 && lw.a > 1e-3 && ln.a > 1e-3) c = lw.rgb / lw.a + (n.rgb / n.a - ln.rgb / ln.a);
+  else if (n.a > 1e-3) c = n.rgb / n.a;
+  else if (lw.a > 1e-3) c = lw.rgb / lw.a;
+  else { c = texture(uFill, uv).rgb; ok = 0.0; }
   if (uOn > 0.5) {
-    vec3 n = (col(at(px + vec2(1.0, 0.0)), uv) + col(at(px - vec2(1.0, 0.0)), uv) + col(at(px + vec2(0.0, 1.0)), uv) + col(at(px - vec2(0.0, 1.0)), uv)) * 0.25;
-    c = c + uSharp * (c - n);
+    vec2 e = 1.0 / uOut;
+    vec3 a1 = narrowAt(uv + vec2(e.x, 0.0)), a2 = narrowAt(uv - vec2(e.x, 0.0)), a3 = narrowAt(uv + vec2(0.0, e.y)), a4 = narrowAt(uv - vec2(0.0, e.y));
+    if (n.a > 1e-3 && a1.x >= 0.0 && a2.x >= 0.0 && a3.x >= 0.0 && a4.x >= 0.0) c = c + uSharp * (n.rgb / n.a - (a1 + a2 + a3 + a4) * 0.25);
     c = clamp(c * uWb, 0.0, 4.0);
     c = clamp((c - uLv.x) / (uLv.y - uLv.x), 0.0, 1.0);
     c = pow(c, vec3(uGam));
@@ -2306,7 +2338,7 @@ void main(){
     c = mix(vec3(l), c, uSat);
     c = mix(c, c * c * (3.0 - 2.0 * c), 0.18);          // gentle contrast
   }
-  o = vec4(clamp(c, 0.0, 1.0), a.a > 1e-5 ? 1.0 : 0.0);
+  o = vec4(clamp(c, 0.0, 1.0), ok);
 }`;
 function glProgram(gl, fs) {
   const mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
@@ -2338,9 +2370,82 @@ function pushPull(rgba, w, h) {        // fill uncovered pixels (alpha 0) from t
   return levels[0].d;
 }
 
+/* ---- seams: who paints which part of the sphere ----
+   For every spot on a coarse map of the room: the best few photos that see it. Start with the most central
+   photo, then let spots switch to a neighbour when that moves the seam onto plain surface: switching costs the
+   colour difference between the two photos along the seam (so seams avoid objects and edges). */
+function planSeams(shots, al, LW, LH) {
+  const cells = LW * LH, K = 4, N = shots.length, BIG = 2.5;
+  K1 = al.k1;
+  const cid = new Int8Array(K * cells).fill(-1), cw = new Float32Array(K * cells), cc = new Uint8Array(K * cells * 3);
+  const D = new Float32Array(cells * 3);
+  for (let y = 0; y < LH; y++) { const lat = (0.5 - (y + 0.5) / LH) * Math.PI, cl = Math.cos(lat), sl = Math.sin(lat); for (let x = 0; x < LW; x++) { const lon = ((x + 0.5) / LW - 0.5) * 2 * Math.PI, o = (y * LW + x) * 3; D[o] = cl * Math.sin(lon); D[o + 1] = sl; D[o + 2] = -cl * Math.cos(lon); } }
+  const rgb = [0, 0, 0];
+  for (let i = 0; i < N; i++) {
+    const s = shots[i], B = s.B, g3 = s.gain3 || [1, 1, 1], tx = al.tl * s.ax, ty = al.tl * s.ay, L = s.lo;
+    for (let p = 0; p < cells; p++) {
+      const o = p * 3, dx = D[o], dy = D[o + 1], dz = D[o + 2];
+      const z = dx * B.f[0] + dy * B.f[1] + dz * B.f[2]; if (z <= 0.02) continue;
+      const ix = (dx * B.r[0] + dy * B.r[1] + dz * B.r[2]) / (z * tx), iy = (dx * B.u[0] + dy * B.u[1] + dz * B.u[2]) / (z * ty);
+      let x = ix, y = iy; if (K1 !== 0) for (let k = 0; k < 4; k++) { const f = 1 + K1 * (x * x + y * y); x = ix / f; y = iy / f; }
+      if (x <= -0.995 || x >= 0.995 || y <= -0.995 || y >= 0.995) continue;
+      const w = (1 - x * x) * (1 - y * y), b = p * K;
+      let pos = K; while (pos > 0 && w > cw[b + pos - 1]) pos--;
+      if (pos >= K) continue;
+      for (let k = K - 1; k > pos; k--) { cid[b + k] = cid[b + k - 1]; cw[b + k] = cw[b + k - 1]; for (let c = 0; c < 3; c++) cc[(b + k) * 3 + c] = cc[(b + k - 1) * 3 + c]; }
+      sampleRGB(L, (x + 1) / 2 * (L.w - 1.001), (1 - y) / 2 * (L.h - 1.001), rgb);
+      cid[b + pos] = i; cw[b + pos] = w; for (let c = 0; c < 3; c++) cc[(b + pos) * 3 + c] = clamp(Math.round(rgb[c] * g3[c] * 255), 0, 255);
+    }
+  }
+  K1 = 0;
+  const lab = new Int8Array(cells); for (let p = 0; p < cells; p++) lab[p] = cid[p * K] < 0 ? -1 : 0;
+  const colorAt = (m, p) => { const b = p * K; for (let k = 0; k < K; k++) if (cid[b + k] === m) return (b + k) * 3; return -1; };
+  const nb = [0, 0, 0, 0];
+  const BETA = al.seamBeta ?? 0.5, LAM = al.seamLam ?? 1.0;
+  const cost = (p, k) => {
+    const b = p * K + k, id = cid[b]; if (id < 0) return 1e9;
+    let c = BETA * (1 - cw[b] / cw[p * K]);
+    const x = p % LW, y = (p / LW) | 0;
+    nb[0] = y * LW + (x + 1) % LW; nb[1] = y * LW + (x + LW - 1) % LW; nb[2] = y > 0 ? p - LW : -1; nb[3] = y < LH - 1 ? p + LW : -1;
+    for (let t = 0; t < 4; t++) {
+      const q = nb[t]; if (q < 0 || lab[q] < 0) continue;
+      const m = cid[q * K + lab[q]]; if (m === id) continue;
+      const mp = colorAt(m, p), iq = colorAt(id, q);
+      if (mp < 0 || iq < 0) { c += LAM * BIG; continue; }
+      const a0 = b * 3, b0 = (q * K + lab[q]) * 3;
+      c += LAM * (Math.abs(cc[a0] - cc[mp]) + Math.abs(cc[a0 + 1] - cc[mp + 1]) + Math.abs(cc[a0 + 2] - cc[mp + 2]) + Math.abs(cc[iq] - cc[b0]) + Math.abs(cc[iq + 1] - cc[b0 + 1]) + Math.abs(cc[iq + 2] - cc[b0 + 2])) / 255;
+    }
+    return c;
+  };
+  for (let sweep = 0; sweep < 6; sweep++) {
+    let changed = 0;
+    for (let yy = 0; yy < LH; yy++) { const y = sweep & 1 ? LH - 1 - yy : yy; for (let xx = 0; xx < LW; xx++) { const x = sweep & 2 ? LW - 1 - xx : xx, p = y * LW + x;
+      if (lab[p] < 0 || cid[p * K + 1] < 0) continue;
+      let best = lab[p], bc = cost(p, best);
+      for (let k = 0; k < K; k++) { if (k === lab[p] || cid[p * K + k] < 0) continue; const c = cost(p, k); if (c < bc - 1e-6) { bc = c; best = k; } }
+      if (best !== lab[p]) { lab[p] = best; changed++; }
+    } }
+    if (!changed) break;
+  }
+  // one soft mask per photo
+  const masks = shots.map(() => new Uint8Array(cells));
+  for (let p = 0; p < cells; p++) if (lab[p] >= 0) masks[cid[p * K + lab[p]]][p] = 255;
+  const tmp = new Uint8Array(cells);
+  for (const m of masks) for (let pass = 0; pass < 2; pass++) {
+    for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) { const o = y * LW + x; tmp[o] = (m[y * LW + (x + LW - 1) % LW] + 2 * m[o] + m[y * LW + (x + 1) % LW]) >> 2; }
+    for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) { const o = y * LW + x; m[o] = (tmp[Math.max(0, y - 1) * LW + x] + 2 * tmp[o] + tmp[Math.min(LH - 1, y + 1) * LW + x]) >> 2; }
+  }
+  return masks;
+}
+
 async function stitchRoom(shots, opts = {}) {
   const onProg = opts.onProgress || (() => {});
   const al = await alignShots(shots, onProg);
+  if (opts.seam) Object.assign(al, opts.seam);
+  const LW = 512, LH = 256;
+  await frame();
+  const masks = planSeams(shots, al, LW, LH);
+  onProg(0.7); await frame();
   const cv = document.createElement('canvas');
   const gl = cv.getContext('webgl2', { premultipliedAlpha: false, preserveDrawingBuffer: true, antialias: false });
   if (!gl) throw new Error('Is phone par 360° jodne ki suvidha (WebGL2) nahi hai.');
@@ -2348,57 +2453,64 @@ async function stitchRoom(shots, opts = {}) {
   gl.getExtension('OES_texture_float_linear');
   const maxT = gl.getParameter(gl.MAX_TEXTURE_SIZE);
   const OW = Math.min(opts.width || 4096, maxT), OH = OW / 2;
-  const P1 = glProgram(gl, FS_ACC), P2 = glProgram(gl, FS_FIN), P0 = glProgram(gl, FS_WMAX);
+  const P1 = glProgram(gl, FS_ACC), P2 = glProgram(gl, FS_FIN);
   const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-  const acc = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, acc);
-  gl.texStorage2D(gl.TEXTURE_2D, 1, floatOk ? gl.RGBA16F : gl.RGBA8, OW, OH);
+  const mkAcc = () => {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texStorage2D(gl.TEXTURE_2D, Math.floor(Math.log2(OW)) + 1, floatOk ? gl.RGBA16F : gl.RGBA8, OW, OH);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
+  };
+  const accN = mkAcc(), accW = mkAcc();
+  const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, accN, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, accW, 0);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+  gl.viewport(0, 0, OW, OH); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+  gl.useProgram(P1.p); gl.uniform2f(P1.u.uOut, OW, OH); gl.uniform1i(P1.u.uImg, 0); gl.uniform1i(P1.u.uMask, 1);
+  gl.uniform1f(P1.u.uWs, floatOk ? 1 : 0.5); gl.uniform1f(P1.u.uK, al.k1 || 0);
+  const img = gl.createTexture(), mt = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, mt);
+  gl.texStorage2D(gl.TEXTURE_2D, 1, gl.R8, LW, LH);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, acc, 0);
-  // pass 1: best centrality per pixel (geometry only, no photo needed)
-  const wmax = gl.createTexture(); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, wmax); gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, OW, OH);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  const fbw = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fbw); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, wmax, 0);
-  gl.viewport(0, 0, OW, OH); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.enable(gl.BLEND); gl.blendEquation(gl.MAX); gl.useProgram(P0.p); gl.uniform2f(P0.u.uOut, OW, OH);
-  for (const s of shots) {
-    const long = Math.max(s.pw, s.ph);
-    gl.uniform3fv(P0.u.uR, s.B.r); gl.uniform3fv(P0.u.uU, s.B.u); gl.uniform3fv(P0.u.uF, s.B.f);
-    gl.uniform2f(P0.u.uT, al.tl * s.pw / long, al.tl * s.ph / long); gl.drawArrays(gl.TRIANGLES, 0, 3);
-  }
-  gl.blendEquation(gl.FUNC_ADD);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-  gl.viewport(0, 0, OW, OH); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.blendFunc(gl.ONE, gl.ONE);
-  gl.useProgram(P1.p); gl.uniform2f(P1.u.uOut, OW, OH); gl.uniform1i(P1.u.uImg, 0); gl.uniform1i(P1.u.uMax, 1); gl.uniform1f(P1.u.uWs, floatOk ? 1 : 0.5);
-  const img = gl.createTexture();
   for (let i = 0; i < shots.length; i++) {
     const s = shots[i];
     const bmp = await createImageBitmap(s.blob);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, mt); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, LW, LH, gl.RED, gl.UNSIGNED_BYTE, masks[i]);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, img);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, bmp); gl.generateMipmap(gl.TEXTURE_2D);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    const long = Math.max(bmp.width, bmp.height);
+    const long = Math.max(bmp.width, bmp.height), g3 = s.gain3 || [1, 1, 1];
     gl.uniform3fv(P1.u.uR, s.B.r); gl.uniform3fv(P1.u.uU, s.B.u); gl.uniform3fv(P1.u.uF, s.B.f);
-    gl.uniform2f(P1.u.uT, al.tl * bmp.width / long, al.tl * bmp.height / long); gl.uniform1f(P1.u.uGain, s.gain || 1);
+    gl.uniform2f(P1.u.uT, al.tl * bmp.width / long, al.tl * bmp.height / long); gl.uniform3f(P1.u.uGain, g3[0], g3[1], g3[2]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (bmp.close) bmp.close();
-    onProg(0.6 + 0.25 * (i + 1) / shots.length);
+    onProg(0.72 + 0.18 * (i + 1) / shots.length);
     await frame();
   }
   gl.disable(gl.BLEND);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  for (const t of [accN, accW]) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, t); gl.generateMipmap(gl.TEXTURE_2D); }
   // small version: statistics for the auto-enhance, and a filled background for any gap
   const SW = 512, SH = 256;
-  const small = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, small); gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, SW, SH);
+  const small = gl.createTexture(); gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, small); gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, SW, SH);
   const fb2 = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb2); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, small, 0);
-  const fill = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, fill); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255]));
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+  const fill = gl.createTexture(); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, fill); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255]));
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  gl.useProgram(P2.p); gl.uniform1i(P2.u.uAcc, 0); gl.uniform1i(P2.u.uFill, 1);
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, acc); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, fill);
-  gl.viewport(0, 0, SW, SH); gl.uniform2f(P2.u.uOut, SW, SH); gl.uniform1f(P2.u.uOn, 0);
+  gl.useProgram(P2.p); gl.uniform1i(P2.u.uAccN, 0); gl.uniform1i(P2.u.uAccW, 1); gl.uniform1i(P2.u.uFill, 2);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, accN); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, accW);
+  gl.uniform1f(P2.u.uLod, Math.max(2, Math.log2(OW / 512) + 2));      // soft layer: blur of about 2 degrees
+  gl.viewport(0, 0, SW, SH); gl.uniform2f(P2.u.uOut, OW, OH); gl.uniform1f(P2.u.uOn, 0);
+  // the small pass samples the big textures: uOut stays the big size for the blur offsets, so scale the coordinates
+  gl.uniform2f(P2.u.uOut, SW, SH);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   const sp = new Uint8Array(SW * SH * 4); gl.readPixels(0, 0, SW, SH, gl.RGBA, gl.UNSIGNED_BYTE, sp);
   // enhancement settings from the small image (top/bottom rows weigh less, like on a sphere)
@@ -2414,10 +2526,10 @@ async function stitchRoom(shots, opts = {}) {
   // gap filler
   const f = new Float32Array(SW * SH * 4); for (let i = 0; i < SW * SH; i++) { f[i * 4] = sp[i * 4] / 255; f[i * 4 + 1] = sp[i * 4 + 1] / 255; f[i * 4 + 2] = sp[i * 4 + 2] / 255; f[i * 4 + 3] = sp[i * 4 + 3] ? 1 : 0; }
   const filled = pushPull(f, SW, SH); const fb8 = new Uint8Array(SW * SH * 4); for (let i = 0; i < filled.length; i++) fb8[i] = clamp(Math.round(filled[i] * 255), 0, 255);
-  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, fill); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, SW, SH, 0, gl.RGBA, gl.UNSIGNED_BYTE, fb8);
-  onProg(0.9); await frame();
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, fill); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, SW, SH, 0, gl.RGBA, gl.UNSIGNED_BYTE, fb8);
+  onProg(0.92); await frame();
   // final full-size pass
-  const out = gl.createTexture(); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, out); gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, OW, OH);
+  const out = gl.createTexture(); gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, out); gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, OW, OH);
   const fb3 = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb3); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, out, 0);
   gl.viewport(0, 0, OW, OH); gl.uniform2f(P2.u.uOut, OW, OH); gl.uniform1f(P2.u.uOn, opts.enhance === false ? 0 : 1);
   gl.uniform3fv(P2.u.uWb, wb); gl.uniform2f(P2.u.uLv, lo, hi); gl.uniform1f(P2.u.uGam, gam); gl.uniform1f(P2.u.uSat, 1.08); gl.uniform1f(P2.u.uSharp, 0.35);
@@ -2429,7 +2541,7 @@ async function stitchRoom(shots, opts = {}) {
   const blob = await new Promise(r => c2.toBlob(r, 'image/jpeg', 0.9));
   const ext = gl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext();
   onProg(1);
-  return { blob, width: OW, height: OH, fov: al.fov, quality: al.quality, coverage: cover / totalW, bad: al.bad.map(i => shots[i].ti), fits: al.fits };
+  return { blob, width: OW, height: OH, fov: al.fov, k1: al.k1, quality: al.quality, coverage: cover / totalW, bad: al.bad.map(i => shots[i].ti), fits: al.fits };
 }
 
 /* ===================================================================== camera sources */
@@ -2508,7 +2620,7 @@ class Capture {
         <li>Screen par ek <b>dot</b> aayega. Use beech ke <b>gol ghere</b> mein laaiye: photo apne aap khinch jayegi.</li>
         <li>Pehle chaaron taraf, phir upar chhat, phir neeche farsh. Lagbhag 30 photos, 1–2 minute.</li>
         <li>Mez, kursi jaisi cheezon se <b>kam se kam 1.5 meter door</b> khade hoiye. Bahut paas ki cheezein theek se nahi judti.</li>
-        <li>Phone ko <b>aankhon ke saamne ek hi jagah</b> rakhiye aur <b>apne pairon par dheere-dheere ghoomiye</b>. Haath ghuma ke phone ko gol-gol mat ghumaiye. Lights on rakhiye.</li>
+        <li><b>Sabse zaroori:</b> phone ko <b>chehre ke paas</b>, kohniyan body se chipka kar pakadiye (haath aage tane hue nahi). Phir <b>pairon par dheere-dheere ghoomiye</b>, phone saath ghoomega. Haath ghuma ke phone ko gol-gol mat ghumaiye: isi se photo "kati-fati" ya double aati hai. Lights on rakhiye.</li>
       </ol>
       <div class="k">Property ka naam</div>
       <input type="text" id="cTitle" maxlength="60" placeholder="Jaise: 2BHK, Vaishali Nagar">
